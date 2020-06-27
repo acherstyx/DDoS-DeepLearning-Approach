@@ -18,7 +18,9 @@ def __load_flow_data(csv_data_file, label_name, select_columns):
                                                  batch_size=1,
                                                  label_name=label_name,
                                                  select_columns=select_columns,
-                                                 num_epochs=1)
+                                                 num_epochs=1,
+                                                 shuffle=True,
+                                                 shuffle_buffer_size=1000)
 
 
 def flow_data_generator(csv_data_file):
@@ -43,6 +45,7 @@ def flow_data_generator(csv_data_file):
         label = label_dict[label.numpy()[0].decode('utf-8')]
 
         yield src_ip + src_port + dest_ip + dest_port + protocol, label
+
 
 
 if __name__ == "__main__":
