@@ -1,8 +1,10 @@
+__package__ = "data_loaders.ISCXIDS_2012"
+
 from scapy.all import PcapReader
 import time
 import dpkt
 import socket
-from data_loaders.ISCXIDS_2012.xml_reader import ISCXIDS_2012_XML_Reader
+from .xml_reader import ISCXIDS_2012_XML_Reader
 import json
 
 MAX_FLOW_SAMPLE = 100
@@ -84,7 +86,9 @@ class ScapyPcapReader:
 
 
 class ISCXIDS2012PcapDataPreprocess:
-    def __init__(self, pcap_file_path, xml_label_file_list):
+    def __init__(self, pcap_file_path, xml_label_file_list, max_flow_sample):
+        # parameter
+        self.max_flow_sample = max_flow_sample
         # save file path
         self.__pcap_file = pcap_file_path
         self.__xml_label_file = xml_label_file_list
@@ -166,11 +170,10 @@ class ISCXIDS2012PcapDataPreprocess:
             feature = {}
             # time
             if flow_id not in self.data:
-                self.data[flow_id] = []
                 feature["time"] = 0
                 feature["start_time"] = ts
             else:
-                if len(self.data[flow_id]) > 10:
+                if len(self.data[flow_id]) > self.max_flow_sample:
                     self.duplicated += 1
                     continue
                 feature["time"] = ts - self.data[flow_id][0]["start_time"]
@@ -210,7 +213,10 @@ class ISCXIDS2012PcapDataPreprocess:
             except KeyError:
                 # print(flow_id)
                 self.no_match_flow += 1
+                continue
 
+            if flow_id not in self.data:
+                self.data[flow_id] = []
             self.data[flow_id].append(feature)
             self.accepted += 1
 
@@ -222,6 +228,9 @@ class ISCXIDS2012PcapDataPreprocess:
         with open(json_file_path, "r") as f:
             self.data = json.load(f)
 
+    def get_data(self):
+        return self.data
+
 
 if __name__ == "__main__":
     file_list = ["dataset/ISCXIDS2012/labeled_flows_xml/TestbedMonJun14Flows.xml",
@@ -230,12 +239,13 @@ if __name__ == "__main__":
                  "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-3Flows.xml"]
 
     reader = ISCXIDS2012PcapDataPreprocess("dataset/ISCXIDS2012/testbed-15jun.pcap",
-                                           file_list)
+                                           file_list,
+                                           100)
 
-    # reader.load()
-    # reader.cache("dataset/ISCXIDS2012/cache.json")
-    print("Loading from cache...")
-    start_time = time.time()
-    reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
-    print("time cost:", time.time() - start_time, "s")
+    reader.load()
+    reader.cache("dataset/ISCXIDS2012/cache.json")
 
+    # print("Loading from cache...")
+    # start_time = time.time()
+    # reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
+    # print("time cost:", time.time() - start_time, "s")

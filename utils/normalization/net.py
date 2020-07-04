@@ -32,6 +32,15 @@ def norm_protocol(protocol: int):
     return norm_number(protocol, 8)
 
 
+def norm_protocol_str(protocol: str):
+    if protocol == "UDP":
+        return [0.0, 0.0, 1.0]
+    elif protocol == "TCP":
+        return [0.0, 1.0, 0.0]
+    else:
+        return [0.0, 0.0, 0.0]
+
+
 if __name__ == "__main__":
     # test case
     ip_1 = "192.168.1.2"

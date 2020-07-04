@@ -1,6 +1,6 @@
 import tensorflow as tf
 from collections import OrderedDict
-from utils.normalization.ip import *
+from utils.normalization.net import *
 
 LABEL_NAME = "Label"
 SELECT_COLUMNS = ["Label",
