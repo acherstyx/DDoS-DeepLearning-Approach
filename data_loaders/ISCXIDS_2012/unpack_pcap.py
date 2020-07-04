@@ -1,10 +1,9 @@
-import scapy
-
-from scapy.all import rdpcap, PcapReader, sniff
+from scapy.all import PcapReader
 import time
 import dpkt
 import socket
-from utils.pcap.xml_reader import ISCXIDS_2012_XML_Reader
+from data_loaders.ISCXIDS_2012.xml_reader import ISCXIDS_2012_XML_Reader
+import json
 
 MAX_FLOW_SAMPLE = 100
 
@@ -86,6 +85,9 @@ class ScapyPcapReader:
 
 class ISCXIDS2012PcapDataPreprocess:
     def __init__(self, pcap_file_path, xml_label_file_list):
+        # save file path
+        self.__pcap_file = pcap_file_path
+        self.__xml_label_file = xml_label_file_list
         # statistic
         self.no_match_flow = 0
         self.no_ip = 0
@@ -95,9 +97,6 @@ class ISCXIDS2012PcapDataPreprocess:
         # open pcap file
         openfile = open(pcap_file_path, 'rb')
         self.packet = dpkt.pcap.Reader(openfile)
-        # load flow label from xml file
-        xml_label = ISCXIDS_2012_XML_Reader(xml_label_file_list)
-        self.label = xml_label.get_flow()
 
         self.data = {}
 
@@ -130,7 +129,11 @@ class ISCXIDS2012PcapDataPreprocess:
             # print(src_ip, dst_ip, dst_port, len(ip.data), len(buf))
             print(tcp.win)
 
-    def unpack_pcap(self):
+    def load(self):
+        # load flow label from xml file
+        xml_label = ISCXIDS_2012_XML_Reader(self.__xml_label_file)
+        self.label = xml_label.get_flow()
+
         time_start = time.time()
         for index, (ts, buf) in enumerate(self.packet):
             if index % 1000000 == 0:
@@ -211,6 +214,14 @@ class ISCXIDS2012PcapDataPreprocess:
             self.data[flow_id].append(feature)
             self.accepted += 1
 
+    def cache(self, json_file_path):
+        with open(json_file_path, "w") as f:
+            json.dump(self.data, f)
+
+    def load_from_cache(self, json_file_path):
+        with open(json_file_path, "r") as f:
+            self.data = json.load(f)
+
 
 if __name__ == "__main__":
     file_list = ["dataset/ISCXIDS2012/labeled_flows_xml/TestbedMonJun14Flows.xml",
@@ -221,5 +232,10 @@ if __name__ == "__main__":
     reader = ISCXIDS2012PcapDataPreprocess("dataset/ISCXIDS2012/testbed-15jun.pcap",
                                            file_list)
 
-    # reader.view_data()
-    reader.unpack_pcap()
+    # reader.load()
+    # reader.cache("dataset/ISCXIDS2012/cache.json")
+    print("Loading from cache...")
+    start_time = time.time()
+    reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
+    print("time cost:", time.time() - start_time, "s")
+
