@@ -9,6 +9,7 @@ from .unpack_pcap import ISCXIDS2012PcapDataPreprocess
 from utils.normalization.number import *
 from utils.normalization.net import *
 import cv2
+import json
 
 
 def get_label(label_str):
@@ -24,21 +25,27 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
         preprocessor = ISCXIDS2012PcapDataPreprocess(self.config.PCAP_FILE,
                                                      self.config.XML_FILE_LIST,
                                                      self.config.MAX_FLOW_SAMPLE)
-        try:
-            # trying to load cache file
-            print("Loading cache...")
-            preprocessor.load_from_cache(self.config.CACHE_FILE)
-            print("Cache loaded.")
-        except Exception:
-            print("No cache for dataset, loading from original data...")
-            preprocessor.load()
-            preprocessor.cache(self.config.CACHE_FILE)
-            print("Loaded.")
 
-        init_dataset = preprocessor.get_data()
+        csv_file = None
+        try:
+            # trying to open csv file
+            csv_file = open(self.config.CSV_CACHE_FILE)
+            print("Loaded.")
+        except Exception:
+            try:
+                preprocessor.load_from_cache(self.config.CACHE_FILE)
+                preprocessor.save_to_csv(self.config.CSV_CACHE_FILE)
+            except Exception:
+                print("No cache for dataset, loading from original data...")
+                preprocessor.load()
+                preprocessor.cache(self.config.CACHE_FILE)
+                preprocessor.save_to_csv(self.config.CSV_CACHE_FILE)
+                print("Loaded.")
+            csv_file = open(self.config.CSV_CACHE_FILE)
 
         # normalize features
-        for flow_id, flow in init_dataset.items():
+        for line in csv_file:
+            flow = json.loads(line)
             pkt_list = []
             label = None
             feature = None
@@ -81,26 +88,31 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                                                  output_types=(tf.float32, tf.float32),
                                                  output_shapes=((self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
                                                                 ()),
-                                                 ).shuffle(100000).batch(self.config.BATCH_SIZE, drop_remainder=True)
+                                                 ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE,
+                                                                                             drop_remainder=True)
         self.dataset = dataset
 
 
 class ISCXIDS2012DataLoaderConfig:
     def __init__(self,
                  pcap_file,
-                 xml_file_list,
                  cache_file,
+                 csv_cache_file,
+                 xml_file_list,
                  batch_size,
                  pkt_each_flow,
                  feature_len,
+                 shuffle_buffer
                  ):
         self.PCAP_FILE = pcap_file
         self.XML_FILE_LIST = xml_file_list
         self.BATCH_SIZE = batch_size
         self.CACHE_FILE = cache_file
         self.PKT_EACH_FLOW = pkt_each_flow
-        self.FEATURE_LEN = feature_len  # match the length of feature list(
+        self.FEATURE_LEN = feature_len  # match the length of feature list
         self.MAX_FLOW_SAMPLE = pkt_each_flow  # same to pkt_each_flow
+        self.CSV_CACHE_FILE = csv_cache_file
+        self.SHUFFLE_BUFFER = shuffle_buffer
 
 
 if __name__ == '__main__':
@@ -116,6 +128,8 @@ if __name__ == '__main__':
         batch_size=10,
         pkt_each_flow=100,
         feature_len=155,
+        csv_cache_file="dataset/ISCXIDS2012/cache.csv",
+        shuffle_buffer=1000
     )
     data_loader = ISCXIDS2012DataLoader(config)
 
@@ -123,4 +137,4 @@ if __name__ == '__main__':
         # print(flow_feature)
         # print(label)
         cv2.imshow("sample", flow_feature[0].numpy())
-        cv2.waitKey(100)
+        cv2.waitKey(1)

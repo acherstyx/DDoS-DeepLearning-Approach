@@ -6,6 +6,8 @@ import dpkt
 import socket
 from .xml_reader import ISCXIDS_2012_XML_Reader
 import json
+import pandas as pd
+import csv
 
 MAX_FLOW_SAMPLE = 100
 
@@ -228,6 +230,18 @@ class ISCXIDS2012PcapDataPreprocess:
         with open(json_file_path, "r") as f:
             self.data = json.load(f)
 
+    def save_to_csv(self, csv_file_path):
+        with open(csv_file_path, "w", encoding='utf-8', newline='') as f:
+            # writer.writerow(("flow_id", "flow_pkt"))
+            for flow_id, flow in self.data.items():
+                f.writelines(json.dumps(flow) + "\n")
+
+    def view_csv(self, csv_file_path):
+        print("Loadng csv...")
+        cache_reader = open(csv_file_path, "r")
+        for row in cache_reader:
+            print(row, end="")
+
     def get_data(self):
         return self.data
 
@@ -242,10 +256,13 @@ if __name__ == "__main__":
                                            file_list,
                                            100)
 
-    reader.load()
-    reader.cache("dataset/ISCXIDS2012/cache.json")
+    # reader.load()
+    # reader.cache("dataset/ISCXIDS2012/cache.json")
 
     # print("Loading from cache...")
     # start_time = time.time()
     # reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
     # print("time cost:", time.time() - start_time, "s")
+
+    reader.view_csv("dataset/ISCXIDS2012/cache.csv")
+    # reader.save_to_csv("dataset/ISCXIDS2012/cache.csv")
