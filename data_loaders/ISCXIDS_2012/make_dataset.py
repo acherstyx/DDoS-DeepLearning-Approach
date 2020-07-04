@@ -40,7 +40,7 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             feature = None
             flow_num = 0
             for pkt in flow:
-                time = norm_number_clipped(int(pkt["time"] * 1000000000), 32)
+                time = norm_number_clipped(int(pkt["time"] * 1000000), 32)
                 pkt_len = norm_number_clipped(pkt["pkt_len"], 16)
                 ip_flags = norm_number(pkt["ip_flags"], 16)
                 protocols = norm_protocol_str(pkt["protocols"])
@@ -53,13 +53,21 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                 feature = time + pkt_len + ip_flags + protocols + tcp_len + tcp_ack + tcp_flags + tcp_win_size + udp_len
                 label = get_label(pkt["label"])
                 flow_num += 1
+                pkt_list.append(feature)
                 if flow_num >= self.config.PKT_EACH_FLOW:
                     break
 
-                pkt_list.append(feature)
             # zero padding for missing packet
-            pkt_list = np.pad(pkt_list, ((0, self.config.PKT_EACH_FLOW - flow_num), (0, 0)))
-            assert np.shape(pkt_list) == (self.config.PKT_EACH_FLOW, len(feature))
+            pkt_list = np.pad(pkt_list,
+                              ((0, self.config.PKT_EACH_FLOW - flow_num), (0, 0)),
+                              mode="constant",
+                              constant_values=(0.0, 0.0))
+            try:
+                assert np.shape(pkt_list) == (self.config.PKT_EACH_FLOW, len(feature))
+            except AssertionError:
+                print(np.shape(pkt_list))
+                print(self.config.PKT_EACH_FLOW, len(feature))
+                raise AssertionError
 
             yield pkt_list, label
 
@@ -87,7 +95,7 @@ class ISCXIDS2012DataLoaderConfig:
         self.BATCH_SIZE = batch_size
         self.CACHE_FILE = cache_file
         self.PKT_EACH_FLOW = pkt_each_flow
-        self.FEATURE_LEN = feature_len
+        self.FEATURE_LEN = feature_len  # match the length of feature list(
         self.MAX_FLOW_SAMPLE = pkt_each_flow  # same to pkt_each_flow
 
 
@@ -107,9 +115,8 @@ if __name__ == '__main__':
     )
     data_loader = ISCXIDS2012DataLoader(config)
 
-    for flow_feature, label in data_loader.get_dataset():
+    for flow_feature, flow_label in data_loader.get_dataset():
         # print(flow_feature)
         # print(label)
         cv2.imshow("sample", flow_feature[0].numpy())
-        cv2.waitKey(1)
-    cv2.waitKey()
+        cv2.waitKey(100)
