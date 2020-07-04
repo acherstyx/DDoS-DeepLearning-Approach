@@ -4,6 +4,9 @@ from scapy.all import rdpcap, PcapReader, sniff
 import time
 import dpkt
 import socket
+from utils.pcap.xml_reader import ISCXIDS_2012_XML_Reader
+
+MAX_FLOW_SAMPLE = 100
 
 
 class ScapyPcapReader:
@@ -81,11 +84,20 @@ class ScapyPcapReader:
             # packet len
 
 
-class DpktPcapReader:
-    def __init__(self, pcap_file_path):
-        self.__file = pcap_file_path
-        openfile = open(self.__file, 'rb')
+class ISCXIDS2012PcapDataPreprocess:
+    def __init__(self, pcap_file_path, xml_label_file_list):
+        # statistic
+        self.no_match_flow = 0
+        self.no_ip = 0
+        self.no_tcp_udp = 0
+        self.duplicated = 0
+        self.accepted = 0
+        # open pcap file
+        openfile = open(pcap_file_path, 'rb')
         self.packet = dpkt.pcap.Reader(openfile)
+        # load flow label from xml file
+        xml_label = ISCXIDS_2012_XML_Reader(xml_label_file_list)
+        self.label = xml_label.get_flow()
 
         self.data = {}
 
@@ -119,13 +131,25 @@ class DpktPcapReader:
             print(tcp.win)
 
     def unpack_pcap(self):
-        for ts, buf in self.packet:
+        time_start = time.time()
+        for index, (ts, buf) in enumerate(self.packet):
+            if index % 1000000 == 0:
+                print(">total:", index, "\n",
+                      "time cost:", time.time() - time_start, "s\n",
+                      "no match flow:", self.no_match_flow, "\n",
+                      "not ip(v6):", self.no_ip, "\n",
+                      "not tcp/udp:", self.no_tcp_udp, "\n",
+                      "duplicated:", self.duplicated, "\n",
+                      "accept:", self.accepted, "\n",
+                      "=====")
             # get flow id
             eth = dpkt.ethernet.Ethernet(buf)
             if not isinstance(eth.data, dpkt.ip.IP) and not isinstance(eth.data, dpkt.ip6.IP6):
+                self.no_ip += 1
                 continue
             ip = eth.data
             if not isinstance(ip.data, dpkt.tcp.TCP) and not isinstance(ip.data, dpkt.udp.UDP):
+                self.no_tcp_udp += 1
                 continue
             tcp_udp = ip.data
 
@@ -134,7 +158,7 @@ class DpktPcapReader:
             src_port = tcp_udp.sport
             dst_port = tcp_udp.dport
 
-            flow_id = str(src_ip) + str(src_port) + str(dst_ip) + str(dst_port)
+            flow_id = str(src_ip) + "-" + str(src_port) + "-" + str(dst_ip) + "-" + str(dst_port)
 
             feature = {}
             # time
@@ -143,8 +167,11 @@ class DpktPcapReader:
                 feature["time"] = 0
                 feature["start_time"] = ts
             else:
-                # feature["time"] = ts - self.data[flow_id][0]["start_time"]
-                feature["time"] = 0
+                if len(self.data[flow_id]) > 10:
+                    self.duplicated += 1
+                    continue
+                feature["time"] = ts - self.data[flow_id][0]["start_time"]
+                # feature["time"] = 0
             # packet len
             feature["pkt_len"] = len(buf)
             # ip flag
@@ -174,13 +201,25 @@ class DpktPcapReader:
                 feature["udp_len"] = len(tcp_udp)
             else:
                 feature["udp_len"] = 0
+            # get label
+            try:
+                feature["label"] = self.label[flow_id]
+            except KeyError:
+                # print(flow_id)
+                self.no_match_flow += 1
 
-            # self.data[flow_id].append(feature)
+            self.data[flow_id].append(feature)
+            self.accepted += 1
 
 
 if __name__ == "__main__":
-    print("start show data.")
-    reader = DpktPcapReader("dataset/ISCXIDS2012/testbed-15jun.pcap")
+    file_list = ["dataset/ISCXIDS2012/labeled_flows_xml/TestbedMonJun14Flows.xml",
+                 "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-1Flows.xml",
+                 "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-2Flows.xml",
+                 "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-3Flows.xml"]
+
+    reader = ISCXIDS2012PcapDataPreprocess("dataset/ISCXIDS2012/testbed-15jun.pcap",
+                                           file_list)
 
     # reader.view_data()
     reader.unpack_pcap()
