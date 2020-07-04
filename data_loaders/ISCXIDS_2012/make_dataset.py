@@ -26,10 +26,14 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                                                      self.config.MAX_FLOW_SAMPLE)
         try:
             # trying to load cache file
+            print("Loading cache...")
             preprocessor.load_from_cache(self.config.CACHE_FILE)
+            print("Cache loaded.")
         except Exception:
+            print("No cache for dataset, loading from original data...")
             preprocessor.load()
             preprocessor.cache(self.config.CACHE_FILE)
+            print("Loaded.")
 
         init_dataset = preprocessor.get_data()
 
@@ -77,7 +81,7 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                                                  output_types=(tf.float32, tf.float32),
                                                  output_shapes=((self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
                                                                 ()),
-                                                 ).batch(self.config.BATCH_SIZE, drop_remainder=True)
+                                                 ).shuffle(100000).batch(self.config.BATCH_SIZE, drop_remainder=True)
         self.dataset = dataset
 
 

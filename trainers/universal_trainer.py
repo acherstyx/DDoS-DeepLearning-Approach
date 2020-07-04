@@ -11,7 +11,8 @@ class UniversalTrainer(TrainerTemplate):
 
         self.model.compile("Adam",
                            loss=tf.keras.losses.BinaryCrossentropy(),
-                           metrics=[tf.keras.metrics.BinaryCrossentropy()])
+                           metrics=[tf.keras.metrics.BinaryAccuracy(),
+                                    tf.keras.metrics.BinaryCrossentropy()])
 
         self.model.fit(x=self.data,
                        epochs=5)
