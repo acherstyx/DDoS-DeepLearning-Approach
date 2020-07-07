@@ -10,6 +10,7 @@ from utils.normalization.number import *
 from utils.normalization.net import *
 import cv2
 import json
+import random
 
 
 def get_label(label_str):
@@ -20,6 +21,27 @@ def get_label(label_str):
 
 
 class ISCXIDS2012DataLoader(DataLoaderTemplate):
+    def __init__(self, config):
+        super(ISCXIDS2012DataLoader, self).__init__(config)
+        self.statistic = {"Normal": 1, "Attack": 1}
+
+    def rand_abort(self, flow_type):
+        """
+        adjust flow bias
+        :param flow_type:
+        :return: if return True, you should throw away that flow
+        """
+        if flow_type == "Normal":
+            if random.random() > self.statistic["Normal"] / (self.statistic["Normal"] + self.statistic["Attack"]):
+                return False
+            else:
+                return True
+        elif flow_type == "Attack":
+            if random.random() > self.statistic["Attack"] / (self.statistic["Normal"] + self.statistic["Attack"]):
+                return False
+            else:
+                return True
+
     def data_generator(self):
         self.config: ISCXIDS2012DataLoaderConfig
         preprocessor = ISCXIDS2012PcapDataPreprocess(self.config.PCAP_FILE,
@@ -50,6 +72,12 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             label = None
             feature = None
             flow_num = 0
+
+            if self.rand_abort(flow[0]["label"]):
+                continue
+
+            self.statistic[flow[0]["label"]] += 1
+
             for pkt in flow:
                 time = norm_number_clipped(int(pkt["time"] * 1000000), 32)
                 pkt_len = norm_number_clipped(pkt["pkt_len"], 16)
@@ -88,8 +116,10 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                                                  output_types=(tf.float32, tf.float32),
                                                  output_shapes=((self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
                                                                 ()),
-                                                 ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE,
-                                                                                             drop_remainder=True)
+                                                 ) \
+            .shuffle(self.config.SHUFFLE_BUFFER) \
+            .batch(self.config.BATCH_SIZE, drop_remainder=True) \
+            .shuffle(100)
         self.dataset = dataset
 
 
@@ -129,12 +159,13 @@ if __name__ == '__main__':
         pkt_each_flow=100,
         feature_len=155,
         csv_cache_file="dataset/ISCXIDS2012/cache.csv",
-        shuffle_buffer=1000
+        shuffle_buffer=10000
     )
     data_loader = ISCXIDS2012DataLoader(config)
 
     for flow_feature, flow_label in data_loader.get_dataset():
         # print(flow_feature)
         # print(label)
+        print(flow_label)
         cv2.imshow("sample", flow_feature[0].numpy())
         cv2.waitKey(1)

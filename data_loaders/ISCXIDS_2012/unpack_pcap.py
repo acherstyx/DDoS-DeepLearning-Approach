@@ -10,6 +10,7 @@ import pandas as pd
 import csv
 
 MAX_FLOW_SAMPLE = 100
+CHECK_INTERVAL = 120  # seconds.
 
 
 class ScapyPcapReader:
@@ -100,6 +101,8 @@ class ISCXIDS2012PcapDataPreprocess:
         self.no_tcp_udp = 0
         self.duplicated = 0
         self.accepted = 0
+        self.bias = {"Normal": 0,
+                     "Attack": 0}
         # open pcap file
         openfile = open(pcap_file_path, 'rb')
         self.packet = dpkt.pcap.Reader(openfile)
@@ -150,6 +153,7 @@ class ISCXIDS2012PcapDataPreprocess:
                       "not tcp/udp:", self.no_tcp_udp, "\n",
                       "duplicated:", self.duplicated, "\n",
                       "accept:", self.accepted, "\n",
+                      "bias:", self.bias, "\n",
                       "=====")
             # get flow id
             eth = dpkt.ethernet.Ethernet(buf)
@@ -176,10 +180,19 @@ class ISCXIDS2012PcapDataPreprocess:
                 feature["start_time"] = ts
             else:
                 if len(self.data[flow_id]) > self.max_flow_sample:
-                    self.duplicated += 1
-                    continue
-                feature["time"] = ts - self.data[flow_id][0]["start_time"]
-                # feature["time"] = 0
+                    if ts - self.data[flow_id][0]["start_time"] > CHECK_INTERVAL:
+                        # move to another key, and remove odl one
+                        self.data[flow_id + "start_time"] = self.data[flow_id]
+                        self.data[flow_id] = []
+
+                        feature["start_time"] = ts
+                        feature["time"] = 0
+                    else:
+                        self.duplicated += 1
+                        continue
+                else:
+                    feature["time"] = ts - self.data[flow_id][0]["start_time"]
+
             # packet len
             feature["pkt_len"] = len(buf)
             # ip flag
@@ -212,6 +225,7 @@ class ISCXIDS2012PcapDataPreprocess:
             # get label
             try:
                 feature["label"] = self.label[flow_id]
+                self.bias[feature["label"]] += 1
             except KeyError:
                 # print(flow_id)
                 self.no_match_flow += 1
@@ -256,13 +270,13 @@ if __name__ == "__main__":
                                            file_list,
                                            100)
 
-    # reader.load()
-    # reader.cache("dataset/ISCXIDS2012/cache.json")
+    reader.load()
+    reader.cache("dataset/ISCXIDS2012/cache.json")
 
     # print("Loading from cache...")
     # start_time = time.time()
     # reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
     # print("time cost:", time.time() - start_time, "s")
 
-    reader.view_csv("dataset/ISCXIDS2012/cache.csv")
-    # reader.save_to_csv("dataset/ISCXIDS2012/cache.csv")
+    # reader.view_csv("dataset/ISCXIDS2012/cache.csv")
+    reader.save_to_csv("dataset/ISCXIDS2012/cache.csv")
