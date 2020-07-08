@@ -15,9 +15,9 @@ import random
 
 def get_label(label_str):
     if label_str == "Normal":
-        return 0.0
+        return [0.0, ]
     else:
-        return 1.0
+        return [1.0, ]
 
 
 class ISCXIDS2012DataLoader(DataLoaderTemplate):
@@ -26,24 +26,30 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
         self.statistic = {"Normal": 1, "Attack": 1}
         self.validation = None
 
-    def rand_abort(self, flow_type):
+    def rand_abort(self, flow_type, is_train):
         """
         adjust flow bias
+        :param is_train:
         :param flow_type:
         :return: if return True, you should throw away that flow
         """
+        if not is_train:
+            return False
+
         if flow_type == "Normal":
-            if random.random() > self.statistic["Normal"] / (self.statistic["Normal"] + self.statistic["Attack"]):
+            if random.random() / 2 + 0.5 > self.statistic["Normal"] / (
+                    self.statistic["Normal"] + self.statistic["Attack"]):
                 return False
             else:
                 return True
         elif flow_type == "Attack":
-            if random.random() > self.statistic["Attack"] / (self.statistic["Normal"] + self.statistic["Attack"]):
+            if random.random() / 2 + 0.5 > self.statistic["Attack"] / (
+                    self.statistic["Normal"] + self.statistic["Attack"]):
                 return False
             else:
                 return True
 
-    def data_generator(self, opened_csv_file):
+    def data_generator(self, opened_csv_file, is_train):
         self.config: ISCXIDS2012DataLoaderConfig
 
         # normalize features
@@ -54,7 +60,9 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             feature = None
             flow_num = 0
 
-            if self.rand_abort(flow[0]["label"]):
+            # random abort
+            random.seed(200)
+            if self.rand_abort(flow[0]["label"], is_train):
                 continue
 
             self.statistic[flow[0]["label"]] += 1
@@ -122,26 +130,28 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
             csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)
 
-        dataset_train = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_train),
+        dataset_train = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_train, True),
                                                        output_types=(tf.float32, tf.float32),
                                                        output_shapes=(
                                                            (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                           ()),
+                                                           (1,)),
                                                        ) \
             .shuffle(self.config.SHUFFLE_BUFFER) \
             .batch(self.config.BATCH_SIZE, drop_remainder=True)
-        dataset_valid_normal = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_normal),
+        dataset_valid_normal = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_normal,
+                                                                                                    False),
                                                               output_types=(tf.float32, tf.float32),
                                                               output_shapes=(
                                                                   (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                                  ()),
-                                                              ).batch(10)
-        dataset_valid_attack = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_attack),
+                                                                  (1,)),
+                                                              ).batch(1)
+        dataset_valid_attack = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_attack,
+                                                                                                    False),
                                                               output_types=(tf.float32, tf.float32),
                                                               output_shapes=(
                                                                   (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                                  ()),
-                                                              ).batch(10)
+                                                                  (1,)),
+                                                              ).batch(1)
         self.dataset = (dataset_train, dataset_valid_normal, dataset_valid_attack)
 
 
@@ -174,7 +184,7 @@ class ISCXIDS2012DataLoaderConfig:
 
 
 if __name__ == '__main__':
-    config = ISCXIDS2012DataLoaderConfig(
+    set_config = ISCXIDS2012DataLoaderConfig(
         pcap_file="dataset/ISCXIDS2012/testbed-15jun.pcap",
         xml_file_list=[
             "dataset/ISCXIDS2012/labeled_flows_xml/TestbedMonJun14Flows.xml",
@@ -185,10 +195,13 @@ if __name__ == '__main__':
         batch_size=10,
         pkt_each_flow=100,
         feature_len=155,
-        shuffle_buffer_size=300,
-        valid_amount=1000
+        shuffle_buffer_size=10,
+        valid_amount=1000,
+        csv_train_file="C:/Users/SYJMi/train.csv",
+        csv_valid_normal_file="C:/Users/SYJMi/valid_normal.csv",
+        csv_valid_attack_file="C:/Users/SYJMi/valid_attack.csv"
     )
-    data_loader = ISCXIDS2012DataLoader(config)
+    data_loader = ISCXIDS2012DataLoader(set_config)
 
     # test the bias of normal and attack flow get from the dataset
     flow_sample_statistic = {"Normal": 1, "Attack": 1}

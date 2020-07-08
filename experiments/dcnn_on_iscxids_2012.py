@@ -1,19 +1,21 @@
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from data_loaders.ISCXIDS_2012.make_dataset import ISCXIDS2012DataLoader, ISCXIDS2012DataLoaderConfig
 from models.dcnn import DCNNModel, DCNNModelConfig
 from trainers.universal_trainer import UniversalTrainer, UniversalTrainerConfig
 
 data_loader_config = ISCXIDS2012DataLoaderConfig(
     pcap_file="dataset/ISCXIDS2012/testbed-15jun.pcap",
-    xml_file_list=["dataset/ISCXIDS2012/labeled_flows_xml/TestbedThuJun17-3Flows.xsd",
+    xml_file_list=["dataset/ISCXIDS2012/labeled_flows_xml/TestbedMonJun14Flows.xml",
                    "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-1Flows.xml",
                    "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-2Flows.xml",
                    "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-3Flows.xml"],
-    cache_file="../cache.json",
-    csv_train_file="dataset/ISCXIDS2012/cache.csv",
-    batch_size=100,
+    batch_size=50,
     pkt_each_flow=100,
     feature_len=155,
-    shuffle_buffer_size=1000
+    shuffle_buffer_size=10000,
+    valid_amount=1000
 )
 
 model_config = DCNNModelConfig(
@@ -22,8 +24,8 @@ model_config = DCNNModelConfig(
 )
 
 trainer_config = UniversalTrainerConfig(
-    epoch=1,
-    learning_rate=0.01
+    epoch=5,
+    learning_rate=0.001
 )
 
 if __name__ == '__main__':
@@ -33,6 +35,12 @@ if __name__ == '__main__':
     trainer = UniversalTrainer(model, train_set, trainer_config)
     trainer.train()
 
+    print("\n=====Test attack flow=====")
+    trainer.evaluate(valid_attack_set)
+    print("\n=====Test normal flow=====")
+    trainer.evaluate(valid_normal_set)
+
+    print("On train.")
     counter = 0
     for test_sample_feature, test_sample_label in train_set:
         # print(test_sample_feature)
@@ -40,5 +48,5 @@ if __name__ == '__main__':
         for a, b in zip(test_sample_label, test_sample_predict):
             print(a.numpy(), b)
         counter += 1
-        if counter > 5:
+        if counter > 2:
             break

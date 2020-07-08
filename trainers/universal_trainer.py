@@ -9,15 +9,28 @@ class UniversalTrainer(TrainerTemplate):
         self.data: tf.data.Dataset
         self.config: UniversalTrainerConfig
 
-        self.model.compile("Adam",
+        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
                            loss=tf.keras.losses.BinaryCrossentropy(),
                            metrics=[tf.keras.metrics.BinaryAccuracy(),
                                     tf.keras.metrics.BinaryCrossentropy()])
 
         self.model.fit(x=self.data,
-                       epochs=5)
+                       epochs=self.config.EPOCH)
+
+    def evaluate(self, eval_set):
+        self.model: tf.keras.Model
+
+        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
+                           loss=tf.keras.losses.BinaryCrossentropy(),
+                           metrics=[tf.keras.metrics.BinaryAccuracy(),
+                                    tf.keras.metrics.BinaryCrossentropy()])
+
+        return self.model.evaluate(eval_set)
 
 
 class UniversalTrainerConfig:
-    def __init__(self):
-        pass
+    def __init__(self,
+                 epoch,
+                 learning_rate):
+        self.EPOCH = epoch
+        self.LEARNING_RATE = learning_rate

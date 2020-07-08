@@ -137,7 +137,7 @@ class ISCXIDS2012PcapDataPreprocess:
             # print(src_ip, dst_ip, dst_port, len(ip.data), len(buf))
             print(src_ip, dst_ip, src_port, dst_port)
 
-    def load(self):
+    def load(self, with_label=True):
         # load flow label from xml file
         xml_label = ISCXIDS_2012_XML_Reader(self.__xml_label_file)
         self.label = xml_label.get_flow()
@@ -224,12 +224,13 @@ class ISCXIDS2012PcapDataPreprocess:
             else:
                 feature["udp_len"] = 0
             # get label
-            try:
-                feature["label"] = self.label[flow_id]
-            except KeyError:
-                # print(flow_id)
-                self.no_match_flow += 1
-                continue
+            if with_label:
+                try:
+                    feature["label"] = self.label[flow_id]
+                except KeyError:
+                    # print(flow_id)
+                    self.no_match_flow += 1
+                    continue
 
             if flow_id not in self.data:
                 self.data[flow_id] = []

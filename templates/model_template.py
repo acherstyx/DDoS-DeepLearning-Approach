@@ -42,7 +42,7 @@ class ModelTemplate:
         """
         raise NotImplementedError
 
-    def get_model(self, *args):
+    def get_model(self, *args) -> tf.keras.Model:
         """
         return self.model
         :return:

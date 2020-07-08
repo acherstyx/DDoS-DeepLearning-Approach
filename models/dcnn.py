@@ -14,12 +14,14 @@ class DCNNModel(ModelTemplate):
         hidden_layer = layers.Reshape((self.config.PKT_EACH_FLOW, self.config.FEATURE_SIZE, 1))(inputs)
 
         hidden_layer = layers.Conv2D(8,
-                                     kernel_size=(3, 3),
+                                     kernel_size=(8, 8),
+                                     strides=(4, 4),
                                      padding="SAME",
                                      activation="relu")(hidden_layer)
         hidden_layer = layers.BatchNormalization()(hidden_layer)
         hidden_layer = layers.Conv2D(16,
-                                     kernel_size=(2, 2),
+                                     kernel_size=(8, 8),
+                                     strides=(4, 4),
                                      padding="SAME",
                                      activation="relu")(hidden_layer)
         hidden_layer = layers.BatchNormalization()(hidden_layer)
@@ -27,9 +29,9 @@ class DCNNModel(ModelTemplate):
                                         padding="SAME")(hidden_layer)
 
         hidden_layer = layers.Flatten()(hidden_layer)
-        hidden_layer = layers.Dense(128,
-                                    activation="relu")(hidden_layer)
         hidden_layer = layers.Dense(64,
+                                    activation="relu")(hidden_layer)
+        hidden_layer = layers.Dense(16,
                                     activation="relu")(hidden_layer)
         hidden_layer = layers.Dense(1,
                                     activation='sigmoid')(hidden_layer)
@@ -56,4 +58,4 @@ if __name__ == '__main__':
     )
 
     model = DCNNModel(config)
-    model.show_summary()
+    model.show_summary(with_plot=True, dpi=150)
