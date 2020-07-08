@@ -35,6 +35,8 @@ if __name__ == '__main__':
     trainer = UniversalTrainer(model, train_set, trainer_config)
     trainer.train()
 
+    trainer.save("./logs/ISCXIDS2012/" + trainer.timestamp + ".h5")
+
     print("\n=====Test attack flow=====")
     trainer.evaluate(valid_attack_set)
     print("\n=====Test normal flow=====")

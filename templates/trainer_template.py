@@ -1,3 +1,6 @@
+import os
+import tensorflow as tf
+
 from datetime import datetime
 
 
@@ -17,7 +20,7 @@ class TrainerTemplate:
         self.metrics = []
 
         # timestamp for log file
-        self.timestamp = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
+        self.timestamp = "{0:%Y-%m-%dT%H-%M-%SW}".format(datetime.now())
         self.checkpoint = None
 
     def train(self, *args):
@@ -26,8 +29,17 @@ class TrainerTemplate:
         """
         raise NotImplementedError
 
-    def save(self, *args):
-        pass
+    def save(self, path: str, *args):
+        self.model: tf.keras.Model
+        try:
+            self.model.save_weights(path)
+        except OSError:
+            os.makedirs(os.path.join(*os.path.split(path)[:-1]))
+            self.model.save_weights(path)
+
+    def load(self, path, *args):
+        self.model: tf.keras.Model
+        self.model.load_weights(path)
 
     def predict(self, *args):
         pass

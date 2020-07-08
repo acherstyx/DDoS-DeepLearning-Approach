@@ -49,8 +49,10 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             else:
                 return True
 
-    def data_generator(self, opened_csv_file, is_train):
+    def data_generator(self, csv_file, is_train):
         self.config: ISCXIDS2012DataLoaderConfig
+
+        opened_csv_file = open(csv_file, "r")
 
         # normalize features
         for line in opened_csv_file:
@@ -129,29 +131,31 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             csv_train = open(self.config.CSV_TRAIN_FILE)
             csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
             csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)
+        csv_train.close()
+        csv_valid_attack.close()
+        csv_valid_normal.close()
 
-        dataset_train = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_train, True),
-                                                       output_types=(tf.float32, tf.float32),
-                                                       output_shapes=(
-                                                           (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                           (1,)),
-                                                       ) \
-            .shuffle(self.config.SHUFFLE_BUFFER) \
-            .batch(self.config.BATCH_SIZE, drop_remainder=True)
-        dataset_valid_normal = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_normal,
-                                                                                                    False),
-                                                              output_types=(tf.float32, tf.float32),
-                                                              output_shapes=(
-                                                                  (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                                  (1,)),
-                                                              ).batch(1)
-        dataset_valid_attack = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_attack,
-                                                                                                    False),
-                                                              output_types=(tf.float32, tf.float32),
-                                                              output_shapes=(
-                                                                  (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                                  (1,)),
-                                                              ).batch(1)
+        dataset_train = tf.data.Dataset.from_generator(
+            generator=lambda: self.data_generator(self.config.CSV_TRAIN_FILE, True),
+            output_types=(tf.float32, tf.float32),
+            output_shapes=(
+                (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                (1,)),
+        ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=True)
+        dataset_valid_normal = tf.data.Dataset.from_generator(
+            generator=lambda: self.data_generator(self.config.CSV_VALID_NORMAL_FILE, False),
+            output_types=(tf.float32, tf.float32),
+            output_shapes=(
+                (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                (1,)),
+        ).batch(1)
+        dataset_valid_attack = tf.data.Dataset.from_generator(
+            generator=lambda: self.data_generator(self.config.CSV_VALID_ATTACK_FILE, False),
+            output_types=(tf.float32, tf.float32),
+            output_shapes=(
+                (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                (1,)),
+        ).batch(1)
         self.dataset = (dataset_train, dataset_valid_normal, dataset_valid_attack)
 
 

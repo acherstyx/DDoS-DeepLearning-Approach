@@ -1,5 +1,9 @@
 dataset/
 .idea/
+*.json
+*.csv
+*.png
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
