@@ -24,6 +24,7 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
     def __init__(self, config):
         super(ISCXIDS2012DataLoader, self).__init__(config)
         self.statistic = {"Normal": 1, "Attack": 1}
+        self.validation = None
 
     def rand_abort(self, flow_type):
         """
@@ -42,31 +43,11 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             else:
                 return True
 
-    def data_generator(self):
+    def data_generator(self, opened_csv_file):
         self.config: ISCXIDS2012DataLoaderConfig
-        preprocessor = ISCXIDS2012PcapDataPreprocess(self.config.PCAP_FILE,
-                                                     self.config.XML_FILE_LIST,
-                                                     self.config.MAX_FLOW_SAMPLE)
-
-        csv_file = None
-        try:
-            # trying to open csv file
-            csv_file = open(self.config.CSV_CACHE_FILE)
-            print("Loaded.")
-        except Exception:
-            try:
-                preprocessor.load_from_cache(self.config.CACHE_FILE)
-                preprocessor.save_to_csv(self.config.CSV_CACHE_FILE)
-            except Exception:
-                print("No cache for dataset, loading from original data...")
-                preprocessor.load()
-                preprocessor.cache(self.config.CACHE_FILE)
-                preprocessor.save_to_csv(self.config.CSV_CACHE_FILE)
-                print("Loaded.")
-            csv_file = open(self.config.CSV_CACHE_FILE)
 
         # normalize features
-        for line in csv_file:
+        for line in opened_csv_file:
             flow = json.loads(line)
             pkt_list = []
             label = None
@@ -112,27 +93,71 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
 
     def load(self):
         self.config: ISCXIDS2012DataLoaderConfig
-        dataset = tf.data.Dataset.from_generator(generator=self.data_generator,
-                                                 output_types=(tf.float32, tf.float32),
-                                                 output_shapes=((self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
-                                                                ()),
-                                                 ) \
+        # doing preprocess
+        preprocessor = ISCXIDS2012PcapDataPreprocess(self.config.PCAP_FILE,
+                                                     self.config.XML_FILE_LIST,
+                                                     self.config.MAX_FLOW_SAMPLE)
+
+        try:
+            # trying to open csv file
+            csv_train = open(self.config.CSV_TRAIN_FILE)
+            csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
+            csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)
+            print("Loaded.")
+        except Exception:
+            print("Can't open csv file, loading from cache...")
+            try:
+                preprocessor.cache_load(self.config.CACHE_FILE)
+                preprocessor.save_to_csv(self.config.CSV_TRAIN_FILE)
+            except Exception:
+                print("No cache for dataset, loading from original data...")
+                preprocessor.load()
+                preprocessor.cache_save(self.config.CACHE_FILE)
+                preprocessor.save_to_csv(train_file_path=self.config.CSV_TRAIN_FILE,
+                                         valid_normal_file_path=self.config.CSV_VALID_NORMAL_FILE,
+                                         valid_attack_file_path=self.config.CSV_VALID_ATTACK_FILE,
+                                         valid_amount=self.config.VALID_AMOUNT)
+                print("Loaded.")
+            csv_train = open(self.config.CSV_TRAIN_FILE)
+            csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
+            csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)
+
+        dataset_train = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_train),
+                                                       output_types=(tf.float32, tf.float32),
+                                                       output_shapes=(
+                                                           (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                                                           ()),
+                                                       ) \
             .shuffle(self.config.SHUFFLE_BUFFER) \
-            .batch(self.config.BATCH_SIZE, drop_remainder=True) \
-            .shuffle(100)
-        self.dataset = dataset
+            .batch(self.config.BATCH_SIZE, drop_remainder=True)
+        dataset_valid_normal = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_normal),
+                                                              output_types=(tf.float32, tf.float32),
+                                                              output_shapes=(
+                                                                  (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                                                                  ()),
+                                                              ).batch(10)
+        dataset_valid_attack = tf.data.Dataset.from_generator(generator=lambda: self.data_generator(csv_valid_attack),
+                                                              output_types=(tf.float32, tf.float32),
+                                                              output_shapes=(
+                                                                  (self.config.PKT_EACH_FLOW, self.config.FEATURE_LEN),
+                                                                  ()),
+                                                              ).batch(10)
+        self.dataset = (dataset_train, dataset_valid_normal, dataset_valid_attack)
 
 
 class ISCXIDS2012DataLoaderConfig:
     def __init__(self,
                  pcap_file,
-                 cache_file,
-                 csv_cache_file,
                  xml_file_list,
                  batch_size,
                  pkt_each_flow,
                  feature_len,
-                 shuffle_buffer
+                 shuffle_buffer_size,
+                 valid_amount,
+                 csv_train_file="train.csv",
+                 csv_valid_normal_file="valid_normal.csv",
+                 csv_valid_attack_file="valid_attack.csv",
+                 cache_file="cache.json"
                  ):
         self.PCAP_FILE = pcap_file
         self.XML_FILE_LIST = xml_file_list
@@ -141,8 +166,11 @@ class ISCXIDS2012DataLoaderConfig:
         self.PKT_EACH_FLOW = pkt_each_flow
         self.FEATURE_LEN = feature_len  # match the length of feature list
         self.MAX_FLOW_SAMPLE = pkt_each_flow  # same to pkt_each_flow
-        self.CSV_CACHE_FILE = csv_cache_file
-        self.SHUFFLE_BUFFER = shuffle_buffer
+        self.CSV_TRAIN_FILE = csv_train_file
+        self.SHUFFLE_BUFFER = shuffle_buffer_size
+        self.CSV_VALID_NORMAL_FILE = csv_valid_normal_file
+        self.CSV_VALID_ATTACK_FILE = csv_valid_attack_file
+        self.VALID_AMOUNT = valid_amount
 
 
 if __name__ == '__main__':
@@ -154,18 +182,28 @@ if __name__ == '__main__':
             "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-2Flows.xml",
             "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-3Flows.xml"
         ],
-        cache_file="dataset/ISCXIDS2012/cache.json",
         batch_size=10,
         pkt_each_flow=100,
         feature_len=155,
-        csv_cache_file="dataset/ISCXIDS2012/cache.csv",
-        shuffle_buffer=10000
+        shuffle_buffer_size=300,
+        valid_amount=1000
     )
     data_loader = ISCXIDS2012DataLoader(config)
 
-    for flow_feature, flow_label in data_loader.get_dataset():
-        # print(flow_feature)
-        # print(label)
-        print(flow_label)
-        cv2.imshow("sample", flow_feature[0].numpy())
-        cv2.waitKey(1)
+    # test the bias of normal and attack flow get from the dataset
+    flow_sample_statistic = {"Normal": 1, "Attack": 1}
+    counter = 0
+
+    train, valid_normal, valid_attack = data_loader.get_dataset()
+    for flow_feature, flow_label in train:
+        for sample in flow_label:
+            if sample == 1:
+                flow_sample_statistic["Attack"] += 1
+            elif sample == 0:
+                flow_sample_statistic["Normal"] += 1
+            else:
+                raise ValueError
+
+            counter += 1
+            if counter % 10000 == 0:
+                print(flow_sample_statistic)

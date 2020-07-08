@@ -1,91 +1,88 @@
 __package__ = "data_loaders.ISCXIDS_2012"
 
-from scapy.all import PcapReader
+# from scapy.all import PcapReader
 import time
 import dpkt
 import socket
 from .xml_reader import ISCXIDS_2012_XML_Reader
 import json
-import pandas as pd
-import csv
 
 MAX_FLOW_SAMPLE = 100
 CHECK_INTERVAL = 120  # seconds.
 
 
-class ScapyPcapReader:
-    def __init__(self, pcap_file_path):
-        self._file = pcap_file_path
-        opened_file = open(self._file, 'rb')
-        self.packets = PcapReader(opened_file)
-
-        self.data = {}
-
-    def view_data(self):
-        for index, pkt in enumerate(self.packets):
-            if 'TCP' in pkt:
-                print("-----\n",
-                      "#:", index, '\n',
-                      "time:", time.ctime(int(pkt.time)), "\n",
-                      "time:", time.gmtime(int(pkt.time)), "\n",
-                      "src_port:", pkt['TCP'].sport, "\n",
-                      "dst_port:", pkt['TCP'].dport, "\n",
-                      "pkt_len:", pkt['IP'].len, "\n",
-                      "ip_flag:", pkt['IP'].flags, "\n",
-
-                      # "tcp_len:", pkt['TCP'].len, "\n",
-                      "tcp_flag:", pkt['TCP'].flags, "\n",
-                      "tcp_window_size:", pkt['TCP'].window, "\n",
-                      "tcp_ack:", pkt['TCP'].ack, "\n",
-
-                      "payload:", pkt['TCP'].payload)
-            # pkt.show()
-
-    def unpack_pcap(self):
-        for index, pkt in enumerate(self.packets):
-            # get flow id
-            transport_layer = ""
-            network_layer = ""
-            try:
-                if 'IP' in pkt:
-                    network_layer = 'IP'
-                elif 'IPv6' in pkt:
-                    network_layer = 'IPv6'
-                else:
-                    print("Warning: no IP or IPv6 layer in this pkt")
-                    # pkt.show()
-                    continue
-
-                if 'TCP' in pkt:
-                    transport_layer = 'TCP'
-                elif 'UDP' in pkt:
-                    transport_layer = 'UDP'
-                else:
-                    print("Warning: no TCP or UDP layer in this pkt")
-                    # pkt.show()
-                    continue
-
-                src_port = pkt[transport_layer].sport
-                dst_port = pkt[transport_layer].sport
-                src_ip = pkt[network_layer].src
-                dst_ip = pkt[network_layer].dst
-                # print(src_ip, src_port, dst_ip, dst_port)
-            except IndexError as e:
-                print(e)
-                # pkt.show()
-                continue
-
-            flow_id = src_ip + src_port + dst_ip + dst_port
-
-            feature = {}
-            # time
-            if flow_id not in self.data:
-                self.data[flow_id] = []
-                feature["time"] = 0
-                feature["start_time"] = int(pkt.time)
-            else:
-                feature["time"] = int(pkt.time) - self.data[flow_id][0]["start_time"]
-            # packet len
+# class ScapyPcapReader:
+#     def __init__(self, pcap_file_path):
+#         self._file = pcap_file_path
+#         opened_file = open(self._file, 'rb')
+#         self.packets = PcapReader(opened_file)
+#
+#         self.data = {}
+#
+#     def view_data(self):
+#         for index, pkt in enumerate(self.packets):
+#             if 'TCP' in pkt:
+#                 print("-----\n",
+#                       "#:", index, '\n',
+#                       "time:", time.ctime(int(pkt.time)), "\n",
+#                       "time:", time.gmtime(int(pkt.time)), "\n",
+#                       "src_port:", pkt['TCP'].sport, "\n",
+#                       "dst_port:", pkt['TCP'].dport, "\n",
+#                       "pkt_len:", pkt['IP'].len, "\n",
+#                       "ip_flag:", pkt['IP'].flags, "\n",
+#
+#                       # "tcp_len:", pkt['TCP'].len, "\n",
+#                       "tcp_flag:", pkt['TCP'].flags, "\n",
+#                       "tcp_window_size:", pkt['TCP'].window, "\n",
+#                       "tcp_ack:", pkt['TCP'].ack, "\n",
+#
+#                       "payload:", pkt['TCP'].payload)
+#             # pkt.show()
+#
+#     def unpack_pcap(self):
+#         for index, pkt in enumerate(self.packets):
+#             # get flow id
+#             transport_layer = ""
+#             network_layer = ""
+#             try:
+#                 if 'IP' in pkt:
+#                     network_layer = 'IP'
+#                 elif 'IPv6' in pkt:
+#                     network_layer = 'IPv6'
+#                 else:
+#                     print("Warning: no IP or IPv6 layer in this pkt")
+#                     # pkt.show()
+#                     continue
+#
+#                 if 'TCP' in pkt:
+#                     transport_layer = 'TCP'
+#                 elif 'UDP' in pkt:
+#                     transport_layer = 'UDP'
+#                 else:
+#                     print("Warning: no TCP or UDP layer in this pkt")
+#                     # pkt.show()
+#                     continue
+#
+#                 src_port = pkt[transport_layer].sport
+#                 dst_port = pkt[transport_layer].sport
+#                 src_ip = pkt[network_layer].src
+#                 dst_ip = pkt[network_layer].dst
+#                 # print(src_ip, src_port, dst_ip, dst_port)
+#             except IndexError as e:
+#                 print(e)
+#                 # pkt.show()
+#                 continue
+#
+#             flow_id = src_ip + src_port + dst_ip + dst_port
+#
+#             feature = {}
+#             # time
+#             if flow_id not in self.data:
+#                 self.data[flow_id] = []
+#                 feature["time"] = 0
+#                 feature["start_time"] = int(pkt.time)
+#             else:
+#                 feature["time"] = int(pkt.time) - self.data[flow_id][0]["start_time"]
 
 
 class ISCXIDS2012PcapDataPreprocess:
@@ -108,6 +105,7 @@ class ISCXIDS2012PcapDataPreprocess:
         self.packet = dpkt.pcap.Reader(openfile)
 
         self.data = {}
+        self.label = None
 
     @staticmethod
     def __translate_ip(ip):
@@ -133,10 +131,11 @@ class ISCXIDS2012PcapDataPreprocess:
 
             src_ip = self.__translate_ip(ip.src)
             dst_ip = self.__translate_ip(ip.dst)
+            src_port = tcp.sport
             dst_port = tcp.dport
             # print(src_ip, dst_ip, dst_port, length, eth.type, ip.get_proto(ip.p).__name__)
             # print(src_ip, dst_ip, dst_port, len(ip.data), len(buf))
-            print(tcp.win)
+            print(src_ip, dst_ip, src_port, dst_port)
 
     def load(self):
         # load flow label from xml file
@@ -146,15 +145,17 @@ class ISCXIDS2012PcapDataPreprocess:
         time_start = time.time()
         for index, (ts, buf) in enumerate(self.packet):
             if index % 1000000 == 0:
-                print(">total:", index, "\n",
-                      "time cost:", time.time() - time_start, "s\n",
-                      "no match flow:", self.no_match_flow, "\n",
-                      "not ip(v6):", self.no_ip, "\n",
-                      "not tcp/udp:", self.no_tcp_udp, "\n",
-                      "duplicated:", self.duplicated, "\n",
-                      "accept:", self.accepted, "\n",
-                      "bias:", self.bias, "\n",
-                      "=====")
+                print(".", end="")
+                # print(
+                #     ">total:", index, "\t",
+                #     "bias:", self.bias, "\t",
+                #     "time cost:", time.time() - time_start, "s\t",
+                #     "no match flow:", self.no_match_flow, "\t",
+                #     "not ip(v6):", self.no_ip, "\t",
+                #     "not tcp/udp:", self.no_tcp_udp, "\t",
+                #     "duplicated:", self.duplicated, "\t",
+                #     "accept:", self.accepted, "\t",
+                # )
             # get flow id
             eth = dpkt.ethernet.Ethernet(buf)
             if not isinstance(eth.data, dpkt.ip.IP) and not isinstance(eth.data, dpkt.ip6.IP6):
@@ -225,7 +226,6 @@ class ISCXIDS2012PcapDataPreprocess:
             # get label
             try:
                 feature["label"] = self.label[flow_id]
-                self.bias[feature["label"]] += 1
             except KeyError:
                 # print(flow_id)
                 self.no_match_flow += 1
@@ -233,31 +233,53 @@ class ISCXIDS2012PcapDataPreprocess:
 
             if flow_id not in self.data:
                 self.data[flow_id] = []
+                self.bias[feature["label"]] += 1
             self.data[flow_id].append(feature)
             self.accepted += 1
 
-    def cache(self, json_file_path):
+        print("\nbias:", self.bias, "\t",
+              "time cost:", time.time() - time_start, "s\t",
+              "no match flow:", self.no_match_flow, "\t",
+              "not ip(v6):", self.no_ip, "\t",
+              "not tcp/udp:", self.no_tcp_udp, "\t",
+              "duplicated:", self.duplicated, "\t",
+              "accept:", self.accepted, "\t",
+              )
+        return self.bias
+
+    def cache_save(self, json_file_path):
         with open(json_file_path, "w") as f:
             json.dump(self.data, f)
 
-    def load_from_cache(self, json_file_path):
+    def cache_load(self, json_file_path):
         with open(json_file_path, "r") as f:
             self.data = json.load(f)
 
-    def save_to_csv(self, csv_file_path):
-        with open(csv_file_path, "w", encoding='utf-8', newline='') as f:
-            # writer.writerow(("flow_id", "flow_pkt"))
-            for flow_id, flow in self.data.items():
-                f.writelines(json.dumps(flow) + "\n")
+    def save_to_csv(self, train_file_path, valid_normal_file_path, valid_attack_file_path, valid_amount):
+        f_train = open(train_file_path, "w", encoding='utf-8', newline='')
+        f_valid_normal = open(valid_normal_file_path, "w", encoding='utf-8', newline='')
+        f_valid_attack = open(valid_attack_file_path, "w", encoding='utf-8', newline='')
+        normal_in_valid = attack_in_valid = 0  # counter
+        for flow_id, flow in self.data.items():
+            if normal_in_valid < valid_amount and flow[0]["label"] == "Normal":
+                f_valid_normal.writelines(json.dumps(flow) + "\n")
+                normal_in_valid += 1
+            elif attack_in_valid < valid_amount and flow[0]["label"] == "Attack":
+                f_valid_attack.writelines(json.dumps(flow) + "\n")
+                attack_in_valid += 1
+            else:
+                f_train.writelines(json.dumps(flow) + "\n")
 
-    def view_csv(self, csv_file_path):
-        print("Loadng csv...")
-        cache_reader = open(csv_file_path, "r")
-        for row in cache_reader:
-            print(row, end="")
+        assert valid_amount == normal_in_valid == attack_in_valid
 
     def get_data(self):
         return self.data
+
+    def get_statistic(self):
+        statistic = {"Attack": 0, "Normal": 0}
+        for flow_id, flow in self.data.items():
+            statistic[flow[0]["label"]] += 1
+        return statistic
 
 
 if __name__ == "__main__":
@@ -270,13 +292,30 @@ if __name__ == "__main__":
                                            file_list,
                                            100)
 
+    print("Loading form original data...")
+    start_time = time.time()
     reader.load()
-    reader.cache("dataset/ISCXIDS2012/cache.json")
+    print("time cost:", time.time() - start_time, "s")
 
-    # print("Loading from cache...")
-    # start_time = time.time()
-    # reader.load_from_cache("dataset/ISCXIDS2012/cache.json")
-    # print("time cost:", time.time() - start_time, "s")
+    print("Making cache...", end="")
+    start_time = time.time()
+    reader.cache_save("dataset/ISCXIDS2012/cache.json")
+    print("time cost:", time.time() - start_time, "s")
 
-    # reader.view_csv("dataset/ISCXIDS2012/cache.csv")
-    reader.save_to_csv("dataset/ISCXIDS2012/cache.csv")
+    print("Loading from cache...", end="")
+    start_time = time.time()
+    reader.cache_load("dataset/ISCXIDS2012/cache.json")
+    print("time cost:", time.time() - start_time, "s")
+
+    print("Doing statistic...", end="")
+    start_time = time.time()
+    print(reader.get_statistic(), end="")
+    print("time cost:", time.time() - start_time, "s")
+
+    print("Saving to csv...", end="")
+    start_time = time.time()
+    reader.save_to_csv(train_file_path="../../train.csv",
+                       valid_normal_file_path="../../valid_normal.csv",
+                       valid_attack_file_path="../../valid_attack.csv",
+                       valid_amount=1000)
+    print("time cost:", time.time() - start_time, "s")

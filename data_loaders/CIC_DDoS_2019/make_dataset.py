@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from data_loaders.csv_reader import flow_data_generator
+from .csv_reader import flow_data_generator
 from templates.data_loader_template import DataLoaderTemplate
 
 
