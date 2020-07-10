@@ -139,8 +139,10 @@ class ISCXIDS2012PcapDataPreprocess:
 
     def load(self, with_label=True):
         # load flow label from xml file
-        xml_label = ISCXIDS_2012_XML_Reader(self.__xml_label_file)
-        self.label = xml_label.get_flow()
+        if with_label:
+            # load label from xml file
+            xml_label = ISCXIDS_2012_XML_Reader(self.__xml_label_file)
+            self.label = xml_label.get_flow()
 
         time_start = time.time()
         for index, (ts, buf) in enumerate(self.packet):
@@ -234,7 +236,8 @@ class ISCXIDS2012PcapDataPreprocess:
 
             if flow_id not in self.data:
                 self.data[flow_id] = []
-                self.bias[feature["label"]] += 1
+                if with_label:
+                    self.bias[feature["label"]] += 1
             self.data[flow_id].append(feature)
             self.accepted += 1
 

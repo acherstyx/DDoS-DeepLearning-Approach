@@ -33,22 +33,18 @@ if __name__ == '__main__':
     model = DCNNModel(model_config).get_model()
 
     trainer = UniversalTrainer(model, train_set, trainer_config)
-    trainer.train()
+    # trainer.train()
 
-    trainer.save("./logs/ISCXIDS2012/" + trainer.timestamp + ".h5")
+    # trainer.save("./logs/ISCXIDS2012/" + trainer.timestamp + ".h5")
 
-    print("\n=====Test attack flow=====")
-    trainer.evaluate(valid_attack_set)
-    print("\n=====Test normal flow=====")
-    trainer.evaluate(valid_normal_set)
+    trainer.load("logs/ISCXIDS2012/2020-07-10T15-45-42W.h5")
 
-    print("On train.")
-    counter = 0
-    for test_sample_feature, test_sample_label in train_set:
-        # print(test_sample_feature)
-        test_sample_predict = model.predict(test_sample_feature)
-        for a, b in zip(test_sample_label, test_sample_predict):
-            print(a.numpy(), b)
-        counter += 1
-        if counter > 2:
-            break
+    # print("\n=====Test attack flow=====")
+    # trainer.evaluate(valid_attack_set)
+    # print("\n=====Test normal flow=====")
+    # trainer.evaluate(valid_normal_set)
+
+    predict_set = ISCXIDS2012DataLoader(data_loader_config).load_predict_set(
+        "dataset/DDoSTestSample/UDP_Flooding.pcap", "Attack")
+
+    trainer.evaluate(predict_set)
