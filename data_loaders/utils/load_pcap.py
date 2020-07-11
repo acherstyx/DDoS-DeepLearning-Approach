@@ -24,11 +24,9 @@ def get_flow_id(pkt_buf):
     """
     eth = dpkt.ethernet.Ethernet(pkt_buf)
     ip = eth.data
-    tcp_udp = ip.data
-
     if not isinstance(ip, dpkt.ip.IP) and not isinstance(ip, dpkt.ip6.IP6):
         return None
-
+    tcp_udp = ip.data
     if not isinstance(tcp_udp, dpkt.tcp.TCP) and not isinstance(tcp_udp, dpkt.udp.UDP):
         return None
 
@@ -36,8 +34,9 @@ def get_flow_id(pkt_buf):
     dst_ip = translate_ip(ip.dst)
     src_port = tcp_udp.sport
     dst_port = tcp_udp.dport
+    protocol = str(ip.p)
 
-    return str(src_ip) + "-" + str(src_port) + "-" + str(dst_ip) + "-" + str(dst_port)
+    return str(src_ip) + "-" + str(dst_ip) + "-" + str(src_port) + "-" + str(dst_port) + "-" + protocol
 
 
 def unpack_feature(timestamp, buf):
@@ -48,8 +47,8 @@ def unpack_feature(timestamp, buf):
     feature = {"timestamp": timestamp,
                "pkt_len": len(buf),
                "ip_flags": eth.type,
-               "protocols": ip.get_proto(ip.p).__name__}
-
+               "protocols": ip.p}
+    # print(ip.p)
     # packet len
     # ip flag
     # protocols
