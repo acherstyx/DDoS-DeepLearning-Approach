@@ -122,7 +122,7 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
             csv_train = open(self.config.CSV_TRAIN_FILE)
             csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
             csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)
-            print("Loaded.")
+            print("Get CSV file.")
         except Exception:
             print("Can't open csv file, loading from cache...")
             try:
@@ -136,7 +136,7 @@ class ISCXIDS2012DataLoader(DataLoaderTemplate):
                                          valid_normal_file_path=self.config.CSV_VALID_NORMAL_FILE,
                                          valid_attack_file_path=self.config.CSV_VALID_ATTACK_FILE,
                                          valid_amount=self.config.VALID_AMOUNT)
-                print("Loaded.")
+                print("Get CSV file.")
             csv_train = open(self.config.CSV_TRAIN_FILE)
             csv_valid_normal = open(self.config.CSV_VALID_NORMAL_FILE)
             csv_valid_attack = open(self.config.CSV_VALID_ATTACK_FILE)

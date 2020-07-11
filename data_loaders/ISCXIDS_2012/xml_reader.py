@@ -39,8 +39,7 @@ class ISCXIDS_2012_XML_Reader:
 
 
 if __name__ == '__main__':
-    file_list = ["dataset/ISCXIDS2012/labeled_flows_xml/TestbedThuJun17-3Flows.xsd",
-                 "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-1Flows.xml",
+    file_list = ["dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-1Flows.xml",
                  "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-2Flows.xml",
                  "dataset/ISCXIDS2012/labeled_flows_xml/TestbedTueJun15-3Flows.xml"]
     reader = ISCXIDS_2012_XML_Reader(file_list)
