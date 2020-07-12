@@ -1,12 +1,13 @@
 __package__ = "data_loaders.CIC_DDoS_2019_Detect"
+__all__ = ["PcapPreprocess", "list_file"]
 
 import dpkt
 from ..CIC_DDoS_2019.csv_reader import load_flow
 from ..utils.load_pcap import get_flow_id
 from ..utils.load_pcap import unpack_feature
 import os
-import json
 from tqdm import tqdm
+import pickle
 
 
 class PcapPreprocess:
@@ -15,20 +16,20 @@ class PcapPreprocess:
                  csv_data,
                  max_flow_sample,
                  check_interval,
-                 cache_file_path="label_cache.json"):
+                 label_cache_file="label_cache.json"):
         # get label from csv
 
         try:
-            print("Loading label cache...")
-            with open(cache_file_path, "r") as cache_file:
-                self.label_dict = json.load(cache_file)
+            print("Loading label cache... ", end="")
+            with open(label_cache_file, "rb") as cache_file:
+                self.label_dict = pickle.load(cache_file)
         except FileNotFoundError:
-            print("No cache, loading label from csv file...")
+            print("No cache, loading label from csv file... ", end="")
             self.label_dict = load_flow(csv_data)
-            print("Making label cache...")
-            with open(cache_file_path, "w") as cache_file:
-                json.dump(self.label_dict, cache_file)
-            print("Cache done.")
+            print("Making label cache... ", end="")
+            with open(label_cache_file, "wb") as cache_file:
+                pickle.dump(self.label_dict, cache_file)
+        print("Done.")
 
         self.__opened_pcap_file_list = [dpkt.pcap.Reader(open(file, "rb")) for file in pcap_file_list]
 
@@ -43,10 +44,21 @@ class PcapPreprocess:
         self.duplicate = 0
         self.bias = {}
 
-    def load(self, with_label=True):
+    def load(self, with_label=True, number_limit=0):
+        """
+        load feature from pcap file and get label
+
+        :param with_label:
+        :param number_limit: limit the sample of each type of label, 0 is unlimited
+        :return:
+        """
+        self.bias = {}
         counter = 0
-        for pcap_file in tqdm(self.__opened_pcap_file_list):
-            print(self.bias)
+        process_bar = tqdm(self.__opened_pcap_file_list)
+
+        for pcap_file in process_bar:
+            process_bar.set_postfix(**self.bias
+                                    )
             for ts, buf in pcap_file:
                 # print(ts, buf)
                 flow_id = get_flow_id(buf)
@@ -60,10 +72,14 @@ class PcapPreprocess:
                 if with_label:
                     try:
                         feature["label"] = self.label_dict[flow_id]
-                        # print(flow_id)
-                    except Exception:
+                    except KeyError:
                         self.no_match_label += 1
                         continue
+                try:
+                    if number_limit != 0 and self.bias[feature["label"]] >= number_limit:
+                        continue
+                except KeyError:
+                    self.bias[feature["label"]] = 0
 
                 if flow_id not in self.data:
                     feature["time"] = 0
@@ -73,13 +89,20 @@ class PcapPreprocess:
                         if ts - self.data[flow_id][0]["start_time"] > self.CHECK_INTERVAL:
                             assert flow_id + str(self.data[flow_id][0]["start_time"]) not in self.data
                             self.data[flow_id + str(self.data[flow_id][0]["start_time"])] = self.data[flow_id]
-                            self.data[flow_id] = []
+                            self.data.pop(flow_id)
 
                             feature["time"] = 0
                             feature["start_time"] = ts
                         else:
                             self.duplicate += 1
                             continue
+                    elif ts - self.data[flow_id][0]["start_time"] > self.CHECK_INTERVAL:
+                        assert flow_id + str(self.data[flow_id][0]["start_time"]) not in self.data
+                        self.data[flow_id + str(self.data[flow_id][0]["start_time"])] = self.data[flow_id]
+                        self.data.pop(flow_id)
+
+                        feature["time"] = 0
+                        feature["start_time"] = ts
                     else:
                         feature["time"] = ts - self.data[flow_id][0]["start_time"]
 
@@ -89,7 +112,7 @@ class PcapPreprocess:
                     self.data[flow_id] = []
                     try:
                         self.bias[feature["label"]] += 1
-                    except Exception:
+                    except KeyError:
                         self.bias[feature["label"]] = 0
                         self.bias[feature["label"]] += 1
 
@@ -98,25 +121,25 @@ class PcapPreprocess:
         return self.bias
 
     def get_statistic(self):
-        return {
-            "bias": self.bias,
-            "no match label": self.no_match_label,
-            "no layer": self.no_layer,
-            "duplicate": self.duplicate
-        }
+        label_bias = {}
+        for key, feature in self.data.items():
+            feature = feature[0]
+            try:
+                label_bias[feature["label"]] += 1
+            except KeyError:
+                label_bias[feature["label"]] = 1
+        return label_bias
 
-    def dump_json(self, json_file):
-        with open(json_file, "w") as f:
-            json.dump(self.data, f)
+    def cache_dump(self, json_file):
+        with open(json_file, "wb") as f:
+            pickle.dump(self.data, f)
 
-    def load_json(self, json_file):
-        with open(json_file, "r") as f:
-            self.data = json.load(f)
+    def cache_load(self, json_file):
+        with open(json_file, "rb") as f:
+            self.data = pickle.load(f)
 
-    def __try_cache(self):
-        pass
-
-
+    def get_dataset(self):
+        return self.data
 
 
 def list_file(directory):
@@ -133,8 +156,7 @@ if __name__ == '__main__':
     print(len(files))
 
     files = [pcap_file_directory + "/" + f for f in files]
-    # files = [x for x in files if int(x.split("_")[-1]) > 136]
-    files = [x for x in files if int(x.split("_")[-1]) > 141]
+    files = [x for x in files if int(x.split("_")[-1]) > 136]
     print(files)
 
     # print(files)
@@ -143,6 +165,7 @@ if __name__ == '__main__':
                                   "dataset/CIC_DDoS_2019/CSV/03-11/Syn.csv",
                                   20,
                                   10)
-    preprocessor.load()
+    preprocessor.load(number_limit=14000)
     print(preprocessor.get_statistic())
-    preprocessor.dump_json("dataset_cache.json")
+    preprocessor.cache_dump("dataset_cache")
+    preprocessor.cache_load("dataset_cache")

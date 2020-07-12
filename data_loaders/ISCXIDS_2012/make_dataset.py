@@ -12,12 +12,7 @@ import cv2
 import json
 import random
 
-
-def get_label(label_str):
-    if label_str == "Normal":
-        return [0.0, ]
-    else:
-        return [1.0, ]
+from ..utils.load_pcap import get_label
 
 
 class ISCXIDS2012DataLoader(DataLoaderTemplate):

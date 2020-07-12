@@ -77,3 +77,12 @@ def unpack_feature(timestamp, buf):
         feature["udp_len"] = 0
 
     return feature
+
+
+def get_label(label_str: str):
+    if label_str.lower() == "attack":
+        return [1.0, ]
+    elif label_str.lower() == "syn":
+        return [1.0, ]
+    else:
+        return [0.0, ]
