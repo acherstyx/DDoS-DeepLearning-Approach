@@ -1,11 +1,11 @@
-__package__ = "data_loaders.CIC_DDoS_2019_Detect"
+__package__ = "data_loaders.CIC_DDoS_2019.Detect"
 
 from templates import DataLoaderTemplate, ConfigTemplate
 from .get_feature_from_pcap import PcapPreprocess, list_file
 from utils.normalization.number import *
 from utils.normalization.net import *
 
-from ..utils.load_pcap import get_label
+from data_loaders.utils.load_pcap import get_label
 import numpy as np
 
 
@@ -36,7 +36,7 @@ class CICDDoS2019DataLoader(DataLoaderTemplate):
                                                                       self.config.FEATURE_LEN),
                                                                      (1,)
                                                                      )
-                                                      ).shuffle(self.config.SHUFFLE_BUF).batch(1)
+                                                      ).shuffle(self.config.SHUFFLE_BUF).batch(self.config.BATCH_SIZE)
 
     def __data_generator(self, data_dict):
         data_dict: dict
@@ -93,6 +93,7 @@ class CICDDoS2019DataLoaderConfig(ConfigTemplate):
                  flow_pkt_limit,
                  feature_len,
                  shuffle_buf_size,
+                 batch_size=1,
                  check_interval=10,
                  label_cache_file="cache/label_cache",
                  feature_cache_file="cache/feature_cache",
@@ -116,6 +117,7 @@ class CICDDoS2019DataLoaderConfig(ConfigTemplate):
         self.LABEL_CACHE_FILE = label_cache_file
         self.FEATURE_CACHE_FILE = feature_cache_file
         self.SHUFFLE_BUF = shuffle_buf_size
+        self.BATCH_SIZE = batch_size
 
 
 if __name__ == '__main__':
@@ -133,6 +135,7 @@ if __name__ == '__main__':
     flow_set = CICDDoS2019DataLoader(config)
 
     import cv2
+
     for feature, label in flow_set.get_dataset():
         print(label)
         cv2.imshow("test", feature[0].numpy())

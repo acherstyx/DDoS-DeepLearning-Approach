@@ -1,13 +1,14 @@
-__package__ = "data_loaders.CIC_DDoS_2019_Detect"
+__package__ = "data_loaders.CIC_DDoS_2019.Detect"
 __all__ = ["PcapPreprocess", "list_file"]
 
 import dpkt
-from ..CIC_DDoS_2019.csv_reader import load_flow
-from ..utils.load_pcap import get_flow_id
-from ..utils.load_pcap import unpack_feature
+from data_loaders.CIC_DDoS_2019.csv_reader import load_flow
+from data_loaders.utils.load_pcap import get_flow_id
+from data_loaders.utils.load_pcap import unpack_feature
 import os
 from tqdm import tqdm
 import pickle
+from utils.file_io import list_file
 
 
 class PcapPreprocess:
@@ -57,8 +58,7 @@ class PcapPreprocess:
         process_bar = tqdm(self.__opened_pcap_file_list)
 
         for pcap_file in process_bar:
-            process_bar.set_postfix(**self.bias
-                                    )
+            process_bar.set_postfix(**self.bias)
             for ts, buf in pcap_file:
                 # print(ts, buf)
                 flow_id = get_flow_id(buf)
@@ -142,13 +142,6 @@ class PcapPreprocess:
         return self.data
 
 
-def list_file(directory):
-    file_list = []
-    for filename in os.listdir(directory):
-        file_list.append(filename)
-    return file_list
-
-
 if __name__ == '__main__':
     pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
     files = list_file(pcap_file_directory)
@@ -164,8 +157,11 @@ if __name__ == '__main__':
     preprocessor = PcapPreprocess(files,
                                   "dataset/CIC_DDoS_2019/CSV/03-11/Syn.csv",
                                   20,
-                                  10)
-    preprocessor.load(number_limit=14000)
-    print(preprocessor.get_statistic())
-    preprocessor.cache_dump("dataset_cache")
-    preprocessor.cache_load("dataset_cache")
+                                  10, label_cache_file="cache/label_cache")
+    # preprocessor.load(number_limit=14000)
+    # print(preprocessor.get_statistic())
+    # preprocessor.cache_dump("dataset_cache")
+    preprocessor.cache_load("cache/feature_cache")
+
+    for sample in preprocessor.get_dataset().items():
+        print(sample)

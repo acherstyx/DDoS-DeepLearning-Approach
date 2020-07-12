@@ -1,1 +1,5 @@
-__all__ = ["dnn"]
+__all__ = ["DCNNModel", "DCNNModelConfig",
+           "DNNModel", "DNNModelConfig"]
+
+from .dcnn import DCNNModel, DCNNModelConfig
+from .dnn import DNNModel, DNNModelConfig
