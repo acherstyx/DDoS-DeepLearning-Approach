@@ -1,6 +1,3 @@
-import os
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from data_loaders.CIC_DDoS_2019.Detect import CICDDoS2019DataLoader, CICDDoS2019DataLoaderConfig
 from data_loaders.Predict import PredictDataLoader, PredictDataLoaderConfig
 from data_loaders.utils.load_pcap import feature_extractor
@@ -13,8 +10,8 @@ import cv2
 pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
 files = list_file(pcap_file_directory)
 files = [pcap_file_directory + "/" + f for f in files]
-# files = [x for x in files if int(x.split("_")[-1]) > 137]
-# valid_files = [x for x in files if int(x.split("_")[-1]) > 136]
+files = [x for x in files if int(x.split("_")[-1]) > 60]
+# valid_files = [x for x in files if int(x.split("_")[-1]) > 60]
 
 data_loader_config = CICDDoS2019DataLoaderConfig(pcap_file_list=files,
                                                  csv_file="dataset/CIC_DDoS_2019/CSV/03-11/UDP.csv",

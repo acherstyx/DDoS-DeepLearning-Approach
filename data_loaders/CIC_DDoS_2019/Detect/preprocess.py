@@ -2,38 +2,48 @@ __package__ = "data_loaders.CIC_DDoS_2019.Detect"
 __all__ = ["PcapPreprocess", "list_file"]
 
 import dpkt
-from data_loaders.CIC_DDoS_2019.csv_reader import load_flow
-from data_loaders.utils.load_pcap import get_flow_id
-from data_loaders.utils.load_pcap import unpack_feature
+
 import os
-from tqdm import tqdm
 import pickle
+import logging
+import pandas as pd
+
+from tqdm import tqdm
 from utils.file_io import list_file
+from data_loaders.utils.load_pcap import get_flow_id, unpack_feature
+
+"""
+Do some preprocess to help make tensorflow dataset from CIC DDoS 2019 dataset
+"""
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def load_label(csv_data_file):
+    """
+    Load flow and its label from the label file from CIC DDoS 2019 dataset
+    :param csv_data_file:   CIC DDoS 2019 dataset label file
+    :return: dict with `Flow ID` as key and `Label` as value
+    """
+    csv_file = pd.read_csv(csv_data_file)
+
+    return dict(zip(csv_file["Flow ID"], csv_file[" Label"]))
 
 
 class PcapPreprocess:
     def __init__(self,
                  pcap_file_list,
-                 csv_data,
+                 csv_file,
                  max_flow_sample,
-                 check_interval,
-                 label_cache_file="label_cache.json"):
-        # get label from csv
+                 check_interval):
+        self.csv_file = csv_file
 
-        try:
-            print("Loading label cache... ", end="")
-            with open(label_cache_file, "rb") as cache_file:
-                self.label_dict = pickle.load(cache_file)
-        except FileNotFoundError:
-            print("No cache, loading label from csv file... ", end="")
-            self.label_dict = load_flow(csv_data)
-            print("Making label cache... ", end="")
-            with open(label_cache_file, "wb") as cache_file:
-                pickle.dump(self.label_dict, cache_file)
-        print("Done.")
+        # save cache to the same directory, use hash value of `self` to identify change
 
         self.__opened_pcap_file_list = [dpkt.pcap.Reader(open(file, "rb")) for file in pcap_file_list]
 
+        self.label_dict = None
         self.data = {}
 
         self.MAX_FLOW_SAMPLE = max_flow_sample
@@ -45,6 +55,11 @@ class PcapPreprocess:
         self.duplicate = 0
         self.bias = {}
 
+        # cache
+        # TODO: change cache file name based on the change in python file
+        self.csv_cache_file = "cache/preprocess-csv_cache"
+        self.pcap_cache_file = "cache/preprocess-pcap_cache"
+
     def load(self, with_label=True, number_limit=0):
         """
         load feature from pcap file and get label
@@ -53,8 +68,32 @@ class PcapPreprocess:
         :param number_limit: limit the sample of each type of label, 0 is unlimited
         :return:
         """
+
+        # try to load cache first
+
+        if self.csv_cache_file is not None:
+            try:
+                logger.info("Loading label cache... ")
+                with open(self.csv_cache_file, "rb") as cache_file:
+                    self.label_dict = pickle.load(cache_file)
+            except FileNotFoundError:
+                logger.info("No cache, loading label from csv file... ")
+                self.label_dict = load_label(self.csv_file)
+                logger.info("Making label cache... ")
+                with open(self.csv_cache_file, "wb") as cache_file:
+                    pickle.dump(self.label_dict, cache_file)
+            logger.info("Done.")
+
+        if self.pcap_cache_file is not None:
+            try:
+                logger.info("Loading pcap cache... ")
+                self.__cache_load(self.pcap_cache_file)
+                return self.get_statistic()
+            except FileNotFoundError:
+                logger.info("No cache, loading from raw data... ")
+            logger.info("Done.")
+
         self.bias = {}
-        counter = 0
         process_bar = tqdm(self.__opened_pcap_file_list)
 
         for pcap_file in process_bar:
@@ -118,6 +157,9 @@ class PcapPreprocess:
 
                 self.data[flow_id].append(feature)
 
+        if self.pcap_cache_file is not None:
+            self.__cache_dump(self.pcap_cache_file)
+
         return self.bias
 
     def get_statistic(self):
@@ -130,11 +172,11 @@ class PcapPreprocess:
                 label_bias[feature["label"]] = 1
         return label_bias
 
-    def cache_dump(self, json_file):
+    def __cache_dump(self, json_file):
         with open(json_file, "wb") as f:
             pickle.dump(self.data, f)
 
-    def cache_load(self, json_file):
+    def __cache_load(self, json_file):
         with open(json_file, "rb") as f:
             self.data = pickle.load(f)
 
@@ -157,11 +199,8 @@ if __name__ == '__main__':
     preprocessor = PcapPreprocess(files,
                                   "dataset/CIC_DDoS_2019/CSV/03-11/Syn.csv",
                                   20,
-                                  10, label_cache_file="cache/label_cache")
-    # preprocessor.load(number_limit=14000)
-    # print(preprocessor.get_statistic())
-    # preprocessor.cache_dump("dataset_cache")
-    preprocessor.cache_load("cache/feature_cache")
+                                  10)
+    print(preprocessor.load(number_limit=14000))
 
-    for sample in preprocessor.get_dataset().items():
-        print(sample)
+    # for sample in preprocessor.get_dataset().items():
+    #     print(sample)

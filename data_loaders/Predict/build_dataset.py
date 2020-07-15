@@ -49,3 +49,18 @@ class PredictDataLoaderConfig(ConfigTemplate):
         self.FEATURE_LEN = feature_len
         self.BATCH_SIZE = batch_size
         self.CACHE_FILE = cache_file
+
+
+if __name__ == '__main__':
+    from data_loaders.utils.load_pcap import feature_extractor
+
+    predict_data_config = PredictDataLoaderConfig(pcap_file_list=["dataset/DDoSTestSample/SYN_Flooding.pcap"],
+                                                  feature_extract_function=feature_extractor,
+                                                  default_label=[1.0, ],
+                                                  feature_len=160,
+                                                  flow_pkt_limit=20)
+
+    predict_set = PredictDataLoader(predict_data_config).get_dataset()
+
+    for key, val in predict_set:
+        print(key, val)

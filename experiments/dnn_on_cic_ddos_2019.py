@@ -1,5 +1,5 @@
 from models.dnn import DNNModel, DNNModelConfig
-from data_loaders.CIC_DDoS_2019.make_dataset import FlowData, FlowDataConfig
+from data_loaders.CIC_DDoS_2019.Classify.make_dataset import FlowData, FlowDataConfig
 from trainers.universal_trainer import UniversalTrainer
 
 dataset_config = FlowDataConfig(csv_data_file="../dataset/sample/pickup.csv",

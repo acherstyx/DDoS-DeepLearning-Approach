@@ -52,10 +52,7 @@ def unpack_feature(timestamp, buf):
                "pkt_len": len(buf),
                "ip_flags": eth.type,
                "protocols": ip.p}
-    # print(ip.p)
-    # packet len
-    # ip flag
-    # protocols
+
     if isinstance(ip.data, dpkt.tcp.TCP):
         # tcp len
         feature["tcp_len"] = len(tcp_udp)
@@ -161,6 +158,7 @@ def feature_extractor(pcap_file_list, packet_limit, cache_file=None):
         get_feature_dict()
 
     for key, flow in data_dict.items():
+        print(key, flow)
         yield parsing_packet(flow, with_label=False, packet_limit=packet_limit)
 
 

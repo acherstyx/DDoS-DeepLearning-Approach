@@ -24,7 +24,7 @@ model_config = DCNNModelConfig(
 )
 
 trainer_config = UniversalTrainerConfig(
-    epoch=5,
+    epoch=2,
     learning_rate=0.001
 )
 
@@ -45,6 +45,9 @@ if __name__ == '__main__':
     # trainer.evaluate(valid_normal_set)
 
     predict_set = ISCXIDS2012DataLoader(data_loader_config).load_predict_set(
-        "dataset/DDoSTestSample/UDP_Flooding.pcap", "Attack")
+        "dataset/DDoSTestSample/SYN_Flooding.pcap", "Attack")
+
+    # for data in predict_set:
+    #     print(data)
 
     trainer.evaluate(predict_set)

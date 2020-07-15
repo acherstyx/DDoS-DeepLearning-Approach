@@ -34,6 +34,7 @@ def flow_data_generator(csv_data_file):
         dest_port = norm_port(features[3].numpy())
         protocol = norm_protocol(features[4].numpy())
 
+
         # label
         label = label_dict[label.numpy()[0].decode('utf-8')]
 
@@ -63,7 +64,7 @@ class FlowDataConfig:
 
 
 if __name__ == "__main__":
-    config = FlowDataConfig("../dataset/sample/pickup.csv", 104, 2)
+    config = FlowDataConfig("dataset/sample/pickup.csv", 104, 2)
     FlowData = FlowData(config)
     dataset = FlowData.get_dataset()
 
