@@ -19,10 +19,18 @@ class PredictDataLoader(DataLoaderTemplate):
     def __predict_data_generator(self):
         self.config: PredictDataLoaderConfig
 
-        for feature in self.config.FEATURE_EXTRACTOR(self.config.PCAP_FILE_LIST,
-                                                     self.config.FLOW_PKT_LIMIT,
-                                                     self.config.CACHE_FILE):
-            yield feature, self.config.LABEL
+        if not self.config.WITH_FLOW_ID:
+            for feature in self.config.FEATURE_EXTRACTOR(self.config.PCAP_FILE_LIST,
+                                                         self.config.FLOW_PKT_LIMIT,
+                                                         self.config.CACHE_FILE,
+                                                         self.config.WITH_FLOW_ID):
+                yield feature, self.config.LABEL
+        else:
+            for flow_id, feature in self.config.FEATURE_EXTRACTOR(self.config.PCAP_FILE_LIST,
+                                                                  self.config.FLOW_PKT_LIMIT,
+                                                                  self.config.CACHE_FILE,
+                                                                  self.config.WITH_FLOW_ID):
+                yield flow_id, feature, self.config.LABEL
 
 
 class PredictDataLoaderConfig(ConfigTemplate):
@@ -33,11 +41,17 @@ class PredictDataLoaderConfig(ConfigTemplate):
                  feature_len,
                  flow_pkt_limit,
                  batch_size=10,
+                 with_flow_id=False,
                  cache_file="cache/predict_cache"):
         """
 
-        :param default_label:
-        :param pcap_file_list:
+        :param feature_len:
+        :param flow_pkt_limit:
+        :param batch_size:  default is 10
+        :param with_flow_id: if true, dataset will return the flow id of each sample
+        :param cache_file: if a file name is given, cache will be enabled
+        :param default_label: which label to return with feature
+        :param pcap_file_list:  python list of *.pcap file
         :param feature_extract_function: a function receive ts and buf from a pcap file, return feature vector
         """
         self.PCAP_FILE_LIST = pcap_file_list
@@ -49,6 +63,7 @@ class PredictDataLoaderConfig(ConfigTemplate):
         self.FEATURE_LEN = feature_len
         self.BATCH_SIZE = batch_size
         self.CACHE_FILE = cache_file
+        self.WITH_FLOW_ID = with_flow_id
 
 
 if __name__ == '__main__':

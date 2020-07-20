@@ -5,6 +5,7 @@ dataset/
 *.png
 logs/
 cache/
+*.pcap
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

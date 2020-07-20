@@ -4,6 +4,9 @@ from utils.normalization.net import *
 from utils.normalization.number import *
 import numpy as np
 import pickle
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def translate_ip(ip):
@@ -122,7 +125,7 @@ def parsing_packet(flow, with_label, packet_limit):
         return pkt_list
 
 
-def feature_extractor(pcap_file_list, packet_limit, cache_file=None):
+def feature_extractor(pcap_file_list, packet_limit, cache_file=None, return_flow_id=False):
     def get_feature_dict():
         for pcap_file in opened_pcap_files:
             for ts, buf in pcap_file:
@@ -158,8 +161,12 @@ def feature_extractor(pcap_file_list, packet_limit, cache_file=None):
         get_feature_dict()
 
     for key, flow in data_dict.items():
-        print(key, flow)
-        yield parsing_packet(flow, with_label=False, packet_limit=packet_limit)
+        logger.debug(key, flow)
+
+        if not return_flow_id:
+            yield parsing_packet(flow, with_label=False, packet_limit=packet_limit)
+        else:
+            yield key, parsing_packet(flow, with_label=False, packet_limit=packet_limit)
 
 
 def get_label(label_str: str):
