@@ -4,6 +4,14 @@ from templates.trainer_template import TrainerTemplate
 
 
 class UniversalTrainer(TrainerTemplate):
+    def __init__(self, model, data, config):
+        super(UniversalTrainer, self).__init__(model, data, config)
+
+        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
+                           loss=tf.keras.losses.BinaryCrossentropy(),
+                           metrics=[tf.keras.metrics.BinaryAccuracy(),
+                                    tf.keras.metrics.BinaryCrossentropy()])
+
     def train(self, *args):
         self.model: tf.keras.Model
         self.data: tf.data.Dataset

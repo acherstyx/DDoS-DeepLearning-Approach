@@ -169,14 +169,15 @@ def feature_extractor(pcap_file_list, packet_limit, cache_file=None, return_flow
             yield key, parsing_packet(flow, with_label=False, packet_limit=packet_limit)
 
 
+NORMAL_LIST = ["benign", "normal"]
+ATTACK_LIST = ["attack", "syn", "udp", "mssql"]
+
+
 def get_label(label_str: str):
-    if label_str.lower() == "attack":
-        return [1.0, ]
-    elif label_str.lower() == "syn":
-        return [1.0, ]
-    elif label_str.lower() == "benign":
+    if label_str.lower() in NORMAL_LIST:
         return [0.0, ]
-    elif label_str.lower() == 'normal':
-        return [0.0, ]
+    elif label_str.lower() in ATTACK_LIST:
+        return [1.0, ]
     else:
+        logger.error(f"ERROR: Label {label_str} not in label list.")
         raise ValueError

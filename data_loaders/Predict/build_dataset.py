@@ -9,12 +9,21 @@ class PredictDataLoader(DataLoaderTemplate):
 
     def load(self):
         self.config: PredictDataLoaderConfig
-        self.dataset = tf.data.Dataset.from_generator(self.__predict_data_generator,
-                                                      output_types=(tf.float32, tf.float32),
-                                                      output_shapes=((self.config.FLOW_PKT_LIMIT,
-                                                                      self.config.FEATURE_LEN),
-                                                                     (1,))
-                                                      ).batch(self.config.BATCH_SIZE)
+        if self.config.WITH_FLOW_ID:
+            self.dataset = tf.data.Dataset.from_generator(self.__predict_data_generator,
+                                                          output_types=(tf.string, tf.float32, tf.float32),
+                                                          output_shapes=((),
+                                                                         (self.config.FLOW_PKT_LIMIT,
+                                                                          self.config.FEATURE_LEN),
+                                                                         (1,))
+                                                          ).batch(self.config.BATCH_SIZE)
+        else:
+            self.dataset = tf.data.Dataset.from_generator(self.__predict_data_generator,
+                                                          output_types=(tf.float32, tf.float32),
+                                                          output_shapes=((self.config.FLOW_PKT_LIMIT,
+                                                                          self.config.FEATURE_LEN),
+                                                                         (1,))
+                                                          ).batch(self.config.BATCH_SIZE)
 
     def __predict_data_generator(self):
         self.config: PredictDataLoaderConfig

@@ -18,12 +18,13 @@ class CICDDoS2019DataLoader(DataLoaderTemplate):
         preprocessor = PcapPreprocess(pcap_file_list=self.config.PCAP_FILE_LIST,
                                       csv_file=self.config.CSV_FILE,
                                       max_flow_sample=self.config.FLOW_PKT_LIMIT,
-                                      check_interval=self.config.CHECK_INTERVAL
+                                      check_interval=self.config.CHECK_INTERVAL,
+                                      flow_limit=self.config.FLOW_LIMIT
                                       )
 
         preprocessor.load()
 
-        print(preprocessor.get_statistic())
+        logger.info("Flow label bias: %s", preprocessor.get_statistic())
         data_dict = preprocessor.get_dataset()
 
         self.dataset = tf.data.Dataset.from_generator(lambda: self.__data_generator(data_dict),

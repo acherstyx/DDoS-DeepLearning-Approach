@@ -10,7 +10,7 @@ if __name__ == '__main__':
     PCAP_FILE = "sample.pcap"
     INTERFACE = "Intel(R) Wireless-AC 9462"
     COUNT = 10000
-    TIMEOUT = 3
+    TIMEOUT = None
 
     # show all network interface
     show_interfaces()

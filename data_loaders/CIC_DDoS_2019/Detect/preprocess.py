@@ -36,7 +36,8 @@ class PcapPreprocess:
                  pcap_file_list,
                  csv_file,
                  max_flow_sample,
-                 check_interval):
+                 check_interval,
+                 flow_limit=None):
         self.csv_file = csv_file
 
         # save cache to the same directory, use hash value of `self` to identify change
@@ -48,6 +49,7 @@ class PcapPreprocess:
 
         self.MAX_FLOW_SAMPLE = max_flow_sample
         self.CHECK_INTERVAL = check_interval
+        self.FLOW_LIMIT = flow_limit
 
         # statistic
         self.no_match_label = 0
@@ -73,32 +75,33 @@ class PcapPreprocess:
 
         if self.csv_cache_file is not None:
             try:
-                logger.info("Loading label cache... ")
+                logger.info("[Cache] Loading label cache from %s... ", self.csv_cache_file)
                 with open(self.csv_cache_file, "rb") as cache_file:
                     self.label_dict = pickle.load(cache_file)
             except FileNotFoundError:
-                logger.info("No cache, loading label from csv file... ")
+                logger.info("[Load] No cache, loading label from csv file... ")
                 self.label_dict = load_label(self.csv_file)
-                logger.info("Making label cache... ")
+                logger.info("[Cache] Making label cache, save to %s... ", self.csv_cache_file)
                 with open(self.csv_cache_file, "wb") as cache_file:
                     pickle.dump(self.label_dict, cache_file)
-            logger.info("Done.")
+            logger.info("[Done] Load csv label.")
 
         if self.pcap_cache_file is not None:
             try:
-                logger.info("Loading pcap cache... ")
+                logger.info("[Cache] Loading pcap cache from %s... ", self.pcap_cache_file)
                 self.__cache_load(self.pcap_cache_file)
+                logger.info("[Done] Load feature from pcap file.")
                 return self.get_statistic()
             except FileNotFoundError:
-                logger.info("No cache, loading from raw data... ")
-            logger.info("Done.")
+                logger.info("[Cache] No cache, loading from raw data... ")
 
         self.bias = {}
         process_bar = tqdm(self.__opened_pcap_file_list)
 
         for pcap_file in process_bar:
-            process_bar.set_postfix(**self.bias)
             for ts, buf in pcap_file:
+                process_bar.set_postfix(**self.bias)
+
                 # print(ts, buf)
                 flow_id = get_flow_id(buf)
 
@@ -148,6 +151,13 @@ class PcapPreprocess:
                 feature.update(unpack_feature(ts, buf))
 
                 if flow_id not in self.data:
+                    if self.FLOW_LIMIT is not None:
+                        try:
+                            if self.bias[feature["label"]] >= self.FLOW_LIMIT:
+                                continue
+                        except KeyError:
+                            pass
+
                     self.data[flow_id] = []
                     try:
                         self.bias[feature["label"]] += 1
@@ -157,8 +167,20 @@ class PcapPreprocess:
 
                 self.data[flow_id].append(feature)
 
+            # exit on sample reach limit
+            if self.FLOW_LIMIT is not None:
+                reach_limit = True
+                for label_type, amount in self.bias.items():
+                    if amount < self.FLOW_LIMIT:
+                        reach_limit = False
+                if reach_limit:
+                    logger.info("[Exit] Sample of each label reach limit, exit loading...")
+                    break
+
         if self.pcap_cache_file is not None:
+            logger.info("[Cache] Making pcap file load cache, save to %s...", self.pcap_cache_file)
             self.__cache_dump(self.pcap_cache_file)
+        logger.info("[Done] Load feature from pcap file.")
 
         return self.bias
 
