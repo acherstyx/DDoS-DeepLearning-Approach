@@ -216,8 +216,6 @@ if __name__ == '__main__':
     files = [x for x in files if int(x.split("_")[-1]) > 136]
     print(files)
 
-    # print(files)
-
     preprocessor = PcapPreprocess(files,
                                   "dataset/CIC_DDoS_2019/CSV/03-11/Syn.csv",
                                   20,

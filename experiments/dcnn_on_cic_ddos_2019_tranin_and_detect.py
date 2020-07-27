@@ -10,7 +10,7 @@ import cv2
 pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
 files = list_file(pcap_file_directory)
 files = [pcap_file_directory + "/" + f for f in files]
-files = [x for x in files if 136 >= int(x.split("_")[-1]) >= 106]
+files = [x for x in files if 136 >= int(x.split("_")[-1]) >= 105]
 # valid_files = [x for x in files if int(x.split("_")[-1]) > 60]
 
 data_loader_config = CICDDoS2019DataLoaderConfig(pcap_file_list=files,

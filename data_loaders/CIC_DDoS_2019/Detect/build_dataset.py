@@ -6,7 +6,7 @@ from templates import DataLoaderTemplate, ConfigTemplate
 from .preprocess import PcapPreprocess, list_file
 from utils.normalization.net import *
 
-from data_loaders.utils.load_pcap import parsing_packet
+from data_loaders.utils.load_pcap import parsing_packet_list
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class CICDDoS2019DataLoader(DataLoaderTemplate):
     def __data_generator(self, data_dict):
         data_dict: dict
         for flow_id, flow_feature in data_dict.items():
-            sample = parsing_packet(flow_feature, with_label=True, packet_limit=self.config.FLOW_PKT_LIMIT)
+            sample = parsing_packet_list(flow_feature, with_label=True, packet_limit=self.config.FLOW_PKT_LIMIT)
             try:
                 assert np.shape(sample[0]) == (self.config.FLOW_PKT_LIMIT, self.config.FEATURE_LEN)
             except AssertionError:
@@ -58,7 +58,7 @@ class CICDDoS2019DataLoaderConfig(ConfigTemplate):
                  feature_len,
                  shuffle_buf_size,
                  batch_size=1,
-                 check_interval=10
+                 check_interval=10,
                  ):
         """
 

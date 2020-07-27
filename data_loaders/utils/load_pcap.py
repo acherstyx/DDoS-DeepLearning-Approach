@@ -83,7 +83,22 @@ def unpack_feature(timestamp, buf):
     return feature
 
 
-def parsing_packet(flow, with_label, packet_limit):
+def parsing_packet(pkt):
+    time = norm_number_clipped(int(pkt["time"] * 1000000), 32)
+    pkt_len = norm_number_clipped(pkt["pkt_len"], 16)
+    ip_flags = norm_number(pkt["ip_flags"], 16)
+    protocols = norm_protocol(pkt["protocols"])  # 8
+    tcp_len = norm_number(pkt["tcp_len"], 16)
+    tcp_ack = norm_number(pkt["tcp_ack"], 32)
+    tcp_flags = norm_number(pkt["tcp_flags"], 8)
+    tcp_win_size = norm_number(pkt["tcp_win_size"], 16)
+    udp_len = norm_number(pkt["udp_len"], 16)
+
+    feature = time + pkt_len + ip_flags + protocols + tcp_len + tcp_ack + tcp_flags + tcp_win_size + udp_len
+    return feature
+
+
+def parsing_packet_list(flow, with_label, packet_limit):
     pkt_list = []
     label = None
     feature = None
@@ -164,9 +179,9 @@ def feature_extractor(pcap_file_list, packet_limit, cache_file=None, return_flow
         logger.debug(key, flow)
 
         if not return_flow_id:
-            yield parsing_packet(flow, with_label=False, packet_limit=packet_limit)
+            yield parsing_packet_list(flow, with_label=False, packet_limit=packet_limit)
         else:
-            yield key, parsing_packet(flow, with_label=False, packet_limit=packet_limit)
+            yield key, parsing_packet_list(flow, with_label=False, packet_limit=packet_limit)
 
 
 NORMAL_LIST = ["benign", "normal"]
