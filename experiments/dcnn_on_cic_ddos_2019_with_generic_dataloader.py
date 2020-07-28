@@ -1,8 +1,12 @@
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 import logging
 
 from data_loaders.Generic_Pacp_Dataset import *
-from models.dcnn import *
-from trainers.universal_trainer import *
+from models.dcnn_classify import *
+from trainers.dcnn_classify_trainer import *
 
 from utils.file_io import list_file
 from data_loaders.CIC_DDoS_2019.preprocess_loader import load_label, load_feature, parsing_label
@@ -20,7 +24,7 @@ files = [x for x in files if 136 >= int(x.split("_")[-1]) >= 106]
 
 # some variable
 CNN_SHAPE = (100, 160)
-CACHE_ROOT = "cache/generic_loader/7-28T02-40/"
+CACHE_ROOT = "cache/generic_loader/7-28T05-02/"
 PREPROCESSOR_DUMP_PATH = CACHE_ROOT + "combine_set_cache"
 # capture config
 CAPTURE_FILE = "cache/current_cap.pcap"
@@ -35,15 +39,15 @@ preprocessor_config = PcapPreprocessorConfig(data_dump_path=PREPROCESSOR_DUMP_PA
 
 data_loader_config = GenericPcapDataLoaderConfig(preprocessor_dump_path=PREPROCESSOR_DUMP_PATH,
                                                  feature_shape=CNN_SHAPE,
-                                                 batch_size=10,
+                                                 batch_size=1,
                                                  shuffle_buffer_size=50000,
                                                  return_flow_id=False)
 
 model_config = DCNNModelConfig(feature_size=CNN_SHAPE[1],
-                               pkt_each_flow=CNN_SHAPE[0])
+                               pkt_each_flow=CNN_SHAPE[0],
+                               learning_rate=0.0001)
 
-trainer_config = UniversalTrainerConfig(epoch=3,
-                                        learning_rate=0.0001)
+trainer_config = UniversalTrainerConfig(epoch=3)
 
 predict_preprocessor_config = PcapPreprocessorConfig(data_dump_path=CAPTURE_PREPROCESS_DUMP,
                                                      pkt_in_each_flow_limit=CNN_SHAPE[0],
@@ -56,26 +60,33 @@ predict_data_loader_config = GenericPcapDataLoaderConfig(preprocessor_dump_path=
                                                          return_flow_id=False)
 
 if __name__ == '__main__':
+
+    logging.basicConfig(level=logging.INFO)
+
     logger.info("Loading attack flow...")
     attack_label_dict = load_label("dataset/CIC_DDoS_2019/CSV/03-11/UDP.csv", CACHE_ROOT + "label_from_csv_cache")
-    attack_feature_list = load_feature(files,
-                                       pkt_in_each_flow_limit=CNN_SHAPE[0],
-                                       label_dict=attack_label_dict,
-                                       sample_limit_dict={"BENIGN": 0, "MSSQL": 0, "UDP": 1000})
+    attack_feature_list = list(load_feature(files,
+                                            pkt_in_each_flow_limit=CNN_SHAPE[0],
+                                            label_dict=attack_label_dict,
+                                            sample_limit_dict={"BENIGN": 0, "MSSQL": 0, "UDP": 5000}))
     attack_label_dict = parsing_label(attack_label_dict)
     logger.info("Loading normal flow...")
-    normal_feature_list = load_feature_without_label(["dataset/Normal_Sample/bilibili_webpage_nextcloudsync.pcap",
-                                                      "dataset/Normal_Sample/webpage.pcap"],
-                                                     pkt_in_each_flow_limit=CNN_SHAPE[0],
-                                                     sample_limit=1000)
+    normal_feature_list = list(load_feature_without_label(["dataset/Normal_Sample/bilibili_webpage_nextcloudsync.pcap",
+                                                           "dataset/Normal_Sample/webpage.pcap"],
+                                                          pkt_in_each_flow_limit=CNN_SHAPE[0],
+                                                          sample_limit=5000))
     normal_label_dict = generate_default_label_dict(normal_feature_list,
-                                                    default_label=[0.0, ])
+                                                    default_label=[1.0, 0.0])
 
     logging.info("Generating dataset...")
 
     mixed_feature_list = list(attack_feature_list) + list(normal_feature_list)
     mixed_label_dict = attack_label_dict.copy()
     mixed_label_dict.update(normal_label_dict)
+
+    logger.debug("Normal feature list: %s", list(normal_feature_list))
+    logger.debug("Attack feature list: %s", list(attack_feature_list))
+    logger.debug("Mixed feature list: %s", mixed_feature_list)
 
     preprocessor = PcapPreprocessor(preprocessor_config, mixed_label_dict, mixed_feature_list)
 
@@ -85,20 +96,21 @@ if __name__ == '__main__':
     trainer = UniversalTrainer(model.get_model(), data_loader.get_dataset(), trainer_config)
     trainer.train()
     trainer.save("logs/CIC_DDoS_2019/generic_data_loader/save.h5")
-    # trainer.load("logs/CIC_DDoS_2019/generic_data_loader/save.h5")
+    trainer.load("logs/CIC_DDoS_2019/generic_data_loader/save.h5")
 
     # capture and predict
     logger.info("Start capture and predict...")
     while True:
-        # capture_pcap(CAPTURE_FILE, INTERFACE, TIMEOUT, COUNT)
-        CAPTURE_FILE = "dataset/Normal_Sample/bilibili_webpage_nextcloudsync.pcap"
+        capture_pcap(CAPTURE_FILE, INTERFACE, TIMEOUT, COUNT)
+        # CAPTURE_FILE = "dataset/Normal_Sample/bilibili_webpage_nextcloudsync.pcap"
 
         predict_feature_list = list(load_feature_without_label([CAPTURE_FILE, ],
                                                                pkt_in_each_flow_limit=CNN_SHAPE[0],
                                                                sample_limit=5000))
-        predict_label_dict = generate_default_label_dict(predict_feature_list, default_label=[0.0, ])
+        predict_label_dict = generate_default_label_dict(predict_feature_list, default_label=[1.0, 0.0])
 
         predict_preprocessor = PcapPreprocessor(predict_preprocessor_config, predict_label_dict, predict_feature_list)
+        # predict_preprocessor = PcapPreprocessor(predict_preprocessor_config, normal_label_dict, normal_feature_list)
         predict_set = GenericPcapDataLoader(predict_data_loader_config)
 
         # print(predict_feature_list, predict_label_dict)
@@ -109,4 +121,3 @@ if __name__ == '__main__':
                 trainer.evaluate(predict_set.get_dataset())
             except TypeError:
                 logger.error("No data, continue...")
-        break

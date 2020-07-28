@@ -14,7 +14,7 @@ class GenericPcapDataLoader(DataLoaderTemplate):
                 output_shapes=(
                     (),
                     self.config.FEATURE_SHAPE,
-                    (1,)
+                    (2,)
                 )
             ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=True)
         else:
@@ -23,7 +23,7 @@ class GenericPcapDataLoader(DataLoaderTemplate):
                 output_types=(tf.float32, tf.float32),
                 output_shapes=(
                     self.config.FEATURE_SHAPE,
-                    (1,)
+                    (2,)
                 )
             ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=True)
 

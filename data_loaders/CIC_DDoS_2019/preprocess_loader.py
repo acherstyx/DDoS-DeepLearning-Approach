@@ -3,9 +3,8 @@ import logging
 import pandas as pd
 from tqdm import tqdm
 from templates.utils import cache_try_load
-from data_loaders.utils.load_pcap import get_flow_id, unpack_feature, parsing_packet, get_label
+from data_loaders.utils.load_pcap import get_flow_id, unpack_feature, parsing_packet
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -101,6 +100,18 @@ def load_feature(pcap_file_list, pkt_in_each_flow_limit=None, label_dict=None, s
 
             process_bar.set_postfix(**sample_statistic)
             yield flow_id, parsing_packet(feature)
+
+
+def get_label(label_str: str):
+    normal_list = ["benign", "normal"]
+    attack_list = ["attack", "syn", "udp", "mssql"]
+    if label_str.lower() in normal_list:
+        return [1.0, 0.0]
+    elif label_str.lower() in attack_list:
+        return [0.0, 1.0]
+    else:
+        logger.error(f"ERROR: Label {label_str} not in label list.")
+        raise ValueError
 
 
 def parsing_label(label_dict):

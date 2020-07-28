@@ -24,7 +24,7 @@ class PcapPreprocessor(PreprocessorTemplate):
     def combine(self):
         self.config: PcapPreprocessorConfig
         data_dict = {}
-        for flow_id, feature in tqdm(self.feature):
+        for flow_id, feature in tqdm(self.feature,ncols=100):
             if flow_id in data_dict:
                 if len(data_dict[flow_id][0]) > self.config.PKT_IN_EACH_FLOW_LIMIT:
                     continue
