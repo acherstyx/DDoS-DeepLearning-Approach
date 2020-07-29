@@ -41,7 +41,8 @@ class DCNNModel(ModelTemplate):
 
         outputs = hidden_layer
         self.model = Model(inputs=inputs,
-                           outputs=outputs)
+                           outputs=outputs,
+                           name="DCNNModel")
 
         self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE, clipnorm=self.config.CLIP_NORM),
                            loss=tf.keras.losses.CategoricalCrossentropy(),
@@ -63,6 +64,7 @@ class DCNNModelConfig:
         self.CLIP_NORM = clip_norm
 
 
+# test case
 if __name__ == '__main__':
     config = DCNNModelConfig(
         155,
@@ -72,4 +74,4 @@ if __name__ == '__main__':
     )
 
     model = DCNNModel(config)
-    model.show_summary(with_plot=True, dpi=150)
+    model.show_summary(with_plot=False, dpi=150)

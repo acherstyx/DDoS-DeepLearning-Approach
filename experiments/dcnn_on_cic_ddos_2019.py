@@ -146,6 +146,6 @@ if __name__ == '__main__':
                     result_list.append(np.argmax(trainer.model.predict(flow), axis=-1))
 
                 if result_list:
-                    logger.warning("Attack: %s%%", np.average(result_list))
+                    logger.warning("Attack: about %s%%", int(np.average(result_list) * 100))
                 else:
                     logger.warning("No predict result! The capture file do not contain any useful data.")
