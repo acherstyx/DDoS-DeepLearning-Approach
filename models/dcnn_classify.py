@@ -18,21 +18,23 @@ class DCNNModel(ModelTemplate):
                                      strides=(2, 2),
                                      padding="SAME",
                                      activation="relu")(hidden_layer)
-        hidden_layer = layers.BatchNormalization()(hidden_layer)
+        # hidden_layer = layers.BatchNormalization()(hidden_layer)
         hidden_layer = layers.Conv2D(16,
                                      kernel_size=(8, 8),
                                      strides=(2, 2),
                                      padding="SAME",
                                      activation="relu")(hidden_layer)
-        hidden_layer = layers.BatchNormalization()(hidden_layer)
+        # hidden_layer = layers.BatchNormalization()(hidden_layer)
         hidden_layer = layers.MaxPool2D(pool_size=(4, 2),
                                         padding="SAME")(hidden_layer)
 
         hidden_layer = layers.Flatten()(hidden_layer)
         hidden_layer = layers.Dense(32,
                                     activation="relu")(hidden_layer)
+        hidden_layer = layers.BatchNormalization()(hidden_layer)
         hidden_layer = layers.Dense(16,
                                     activation="relu")(hidden_layer)
+        hidden_layer = layers.BatchNormalization()(hidden_layer)
         hidden_layer = layers.Dense(2,
                                     activation='relu')(hidden_layer)
         hidden_layer = layers.Softmax()(hidden_layer)
@@ -41,7 +43,7 @@ class DCNNModel(ModelTemplate):
         self.model = Model(inputs=inputs,
                            outputs=outputs)
 
-        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
+        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE, clipnorm=self.config.CLIP_NORM),
                            loss=tf.keras.losses.CategoricalCrossentropy(),
                            metrics=[tf.keras.metrics.CategoricalAccuracy(),
                                     tf.keras.metrics.CategoricalCrossentropy()])
@@ -52,18 +54,21 @@ class DCNNModelConfig:
     def __init__(self,
                  feature_size,
                  pkt_each_flow,
-                 learning_rate
+                 learning_rate,
+                 clip_norm
                  ):
         self.FEATURE_SIZE = feature_size
         self.PKT_EACH_FLOW = pkt_each_flow
         self.LEARNING_RATE = learning_rate
+        self.CLIP_NORM = clip_norm
 
 
 if __name__ == '__main__':
     config = DCNNModelConfig(
         155,
         100,
-        0.0001
+        0.0001,
+        0.1
     )
 
     model = DCNNModel(config)

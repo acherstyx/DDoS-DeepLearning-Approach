@@ -47,7 +47,7 @@ def load_feature(pcap_file_list, pkt_in_each_flow_limit=None, label_dict=None, s
     time_dict = {}
     flow_appear_count = {}
 
-    process_bar = tqdm(opened_pcap_file_list, ncols=100)
+    process_bar = tqdm(opened_pcap_file_list, ncols=100, leave=True)
     for pcap_file in process_bar:
         for ts, buf in pcap_file:
 
