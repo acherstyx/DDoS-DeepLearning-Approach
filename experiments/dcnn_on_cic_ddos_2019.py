@@ -58,7 +58,7 @@ predict_preprocessor_config = PcapPreprocessorConfig(data_dump_path=CAPTURE_PREP
 
 predict_data_loader_config = GenericPcapDataLoaderConfig(preprocessor_dump_path=CAPTURE_PREPROCESS_DUMP,
                                                          feature_shape=CNN_SHAPE,
-                                                         batch_size=50,
+                                                         batch_size=1,
                                                          shuffle_buffer_size=1,
                                                          return_flow_id=True)
 
@@ -108,6 +108,8 @@ if __name__ == '__main__':
         logger.info("Saving weight...")
         trainer.save("logs/CIC_DDoS_2019/release/save.h5")
     else:
+        from utils.decision_making import send_attack_ip
+
         logger.warning("Programme started in predict mode!")
         model = DCNNModel(model_config)
         trainer = UniversalTrainer(model.get_model(), None, trainer_config)
@@ -143,7 +145,13 @@ if __name__ == '__main__':
 
                 result_list = []
                 for flow_id, flow, label in predict_set.get_dataset():
-                    result_list.append(np.argmax(trainer.model.predict(flow), axis=-1))
+                    predict_result = np.argmax(trainer.model.predict(flow), axis=-1)[0]
+                    result_list.append(predict_result)
+                    logger.info("Predict flow id: %s, label: %s", flow_id[0].numpy().decode("utf-8"),
+                                predict_result)
+                    ip_addr = flow_id.numpy()[0].decode("utf-8").split("-")[0]
+                    if predict_result == 1:
+                        send_attack_ip(ip_addr)
 
                 if result_list:
                     logger.warning("Attack: about %s%%", int(np.average(result_list) * 100))
