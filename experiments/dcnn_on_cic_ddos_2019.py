@@ -6,8 +6,8 @@ import logging
 import numpy as np
 
 from data_loaders.Generic_Pacp_Dataset import *
-from models.dcnn_classify import *
-from trainers.dcnn_classify_trainer import *
+from models.dcnn import *
+from trainers.universal_trainer import *
 
 from utils.file_io import list_file
 from data_loaders.CIC_DDoS_2019.preprocess_loader import load_label, load_feature, parsing_label
@@ -105,49 +105,47 @@ if __name__ == '__main__':
             logger.debug("Label: %s", label)
 
         trainer.train()
-        trainer.save("logs/CIC_DDoS_2019/generic_data_loader/save.h5")
+        logger.info("Saving weight...")
+        trainer.save("logs/CIC_DDoS_2019/release/save.h5")
     else:
         logger.warning("Programme started in predict mode!")
         model = DCNNModel(model_config)
         trainer = UniversalTrainer(model.get_model(), None, trainer_config)
-        trainer.load("logs/CIC_DDoS_2019/generic_data_loader/save.h5")
+        trainer.load("logs/CIC_DDoS_2019/release/save.h5")
 
-    # capture and predict
-    logger.info("Start capture and predict...")
-    predict_index = 0
-    while True:
-        predict_index += 1
-        logger.info("Predict turn %s", predict_index)
-        logger.info("Capturing...")
-        capture_pcap(CAPTURE_FILE, INTERFACE, TIMEOUT, COUNT)
-        logger.info("Capture done, generating predict set...")
+        # capture and predict
+        logger.info("Start capture and predict...")
+        predict_index = 0
+        while True:
+            predict_index += 1
+            logger.info("Predict turn %s", predict_index)
+            logger.info("Capturing...")
+            capture_pcap(CAPTURE_FILE, INTERFACE, TIMEOUT, COUNT)
+            logger.info("Capture done, generating predict set...")
 
-        # CAPTURE_FILE = "dataset/Normal_Sample/bilibili_webpage_nextcloudsync.pcap"
-        # CAPTURE_FILE = "dataset/CIC_DDoS_2019/PCAP/3-11/SAT-03-11-2018_0106"
+            predict_feature_list = list(load_feature_without_label([CAPTURE_FILE, ],
+                                                                   pkt_in_each_flow_limit=CNN_SHAPE[0],
+                                                                   sample_limit=5000))
+            predict_label_dict = generate_default_label_dict(predict_feature_list, default_label=[0.0, 1.0])
 
-        predict_feature_list = list(load_feature_without_label([CAPTURE_FILE, ],
-                                                               pkt_in_each_flow_limit=CNN_SHAPE[0],
-                                                               sample_limit=5000))
-        predict_label_dict = generate_default_label_dict(predict_feature_list, default_label=[0.0, 1.0])
+            logger.debug("Predict feature list: %s", predict_feature_list)
+            logger.debug("Predict label dict: %s", predict_label_dict)
 
-        logger.debug("Predict feature list: %s", predict_feature_list)
-        logger.debug("Predict label dict: %s", predict_label_dict)
+            predict_preprocessor = PcapPreprocessor(predict_preprocessor_config, predict_label_dict,
+                                                    predict_feature_list)
+            predict_set = GenericPcapDataLoader(predict_data_loader_config)
 
-        predict_preprocessor = PcapPreprocessor(predict_preprocessor_config, predict_label_dict, predict_feature_list)
-        # predict_preprocessor = PcapPreprocessor(predict_preprocessor_config, normal_label_dict, normal_feature_list)
-        predict_set = GenericPcapDataLoader(predict_data_loader_config)
+            if predict_set.get_dataset() is not None:
+                # try:
+                #     trainer.evaluate(predict_set.get_dataset())
+                # except TypeError:
+                #     logger.error("No data, continue...")
 
-        if predict_set.get_dataset() is not None:
-            # try:
-            #     trainer.evaluate(predict_set.get_dataset())
-            # except TypeError:
-            #     logger.error("No data, continue...")
+                result_list = []
+                for flow_id, flow, label in predict_set.get_dataset():
+                    result_list.append(np.argmax(trainer.model.predict(flow), axis=-1))
 
-            result_list = []
-            for flow_id, flow, label in predict_set.get_dataset():
-                result_list.append(np.argmax(trainer.model.predict(flow), axis=-1))
-
-            if result_list:
-                logger.warning("Attack: %s%%", np.average(result_list))
-            else:
-                logger.warning("No predict result!")
+                if result_list:
+                    logger.warning("Attack: %s%%", np.average(result_list))
+                else:
+                    logger.warning("No predict result! The capture file do not contain any useful data.")

@@ -1,7 +1,9 @@
 from scapy.all import *
+from templates.utils import mkdir
 
 
 def capture_pcap(pcap_file, interface, time_limit, pkt_limit):
+    mkdir(pcap_file)
     dpkt = sniff(iface=interface, count=pkt_limit, timeout=time_limit)
     wrpcap(pcap_file, dpkt)
 

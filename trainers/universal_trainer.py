@@ -7,20 +7,10 @@ class UniversalTrainer(TrainerTemplate):
     def __init__(self, model, data, config):
         super(UniversalTrainer, self).__init__(model, data, config)
 
-        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
-                           loss=tf.keras.losses.BinaryCrossentropy(),
-                           metrics=[tf.keras.metrics.BinaryAccuracy(),
-                                    tf.keras.metrics.BinaryCrossentropy()])
-
     def train(self, *args):
         self.model: tf.keras.Model
         self.data: tf.data.Dataset
         self.config: UniversalTrainerConfig
-
-        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
-                           loss=tf.keras.losses.BinaryCrossentropy(),
-                           metrics=[tf.keras.metrics.BinaryAccuracy(),
-                                    tf.keras.metrics.BinaryCrossentropy()])
 
         self.model.fit(x=self.data,
                        epochs=self.config.EPOCH)
@@ -28,17 +18,10 @@ class UniversalTrainer(TrainerTemplate):
     def evaluate(self, eval_set):
         self.model: tf.keras.Model
 
-        self.model.compile(tf.keras.optimizers.Adam(self.config.LEARNING_RATE),
-                           loss=tf.keras.losses.BinaryCrossentropy(),
-                           metrics=[tf.keras.metrics.BinaryAccuracy(),
-                                    tf.keras.metrics.BinaryCrossentropy()])
-
         return self.model.evaluate(eval_set)
 
 
 class UniversalTrainerConfig:
     def __init__(self,
-                 epoch,
-                 learning_rate):
+                 epoch):
         self.EPOCH = epoch
-        self.LEARNING_RATE = learning_rate
