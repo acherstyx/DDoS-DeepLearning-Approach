@@ -3,8 +3,12 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import logging
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
+import time
 
+from scipy.interpolate import make_interp_spline
 from data_loaders.Generic_Pacp_Dataset import *
 from models.dcnn import *
 from trainers.universal_trainer import *
@@ -15,12 +19,9 @@ from data_loaders.No_Label_Pcap_Set.preprocess_loader import load_feature as loa
 from data_loaders.No_Label_Pcap_Set.preprocess_loader import generate_default_label_dict
 from data_loaders.Predict import capture_pcap
 
-logger = logging.getLogger(__name__)
+mpl.rcParams['toolbar'] = 'None'
 
-pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
-files = list_file(pcap_file_directory)
-files = [pcap_file_directory + "/" + f for f in files]
-files = [x for x in files if 136 >= int(x.split("_")[-1]) >= 107]
+logger = logging.getLogger(__name__)
 
 # some variable
 SAMPLE_NUMBER = 10000
@@ -32,7 +33,7 @@ PREPROCESSOR_DUMP_PATH = CACHE_ROOT + "combine_set_cache"
 CAPTURE_FILE = "cache/current_cap.pcap"
 INTERFACE = "Intel(R) Wireless-AC 9462"
 COUNT = 10000
-TIMEOUT = 10
+TIMEOUT = 5
 CAPTURE_PREPROCESS_DUMP = CACHE_ROOT + "combine_set_cache(predict)"
 
 preprocessor_config = PcapPreprocessorConfig(data_dump_path=PREPROCESSOR_DUMP_PATH,
@@ -58,7 +59,7 @@ predict_preprocessor_config = PcapPreprocessorConfig(data_dump_path=CAPTURE_PREP
 
 predict_data_loader_config = GenericPcapDataLoaderConfig(preprocessor_dump_path=CAPTURE_PREPROCESS_DUMP,
                                                          feature_shape=CNN_SHAPE,
-                                                         batch_size=1,
+                                                         batch_size=1000,
                                                          shuffle_buffer_size=1,
                                                          return_flow_id=True)
 
@@ -66,6 +67,11 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     if IS_TRAINING:
+        pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
+        files = list_file(pcap_file_directory)
+        files = [pcap_file_directory + "/" + f for f in files]
+        files = [x for x in files if 136 >= int(x.split("_")[-1]) >= 107]
+
         logger.warning("Programme started in train mode!")
 
         logger.info("Loading normal flow...")
@@ -118,6 +124,9 @@ if __name__ == '__main__':
         # capture and predict
         logger.info("Start capture and predict...")
         predict_index = 0
+
+        record_dict = {}
+
         while True:
             predict_index += 1
             logger.info("Predict turn %s", predict_index)
@@ -145,15 +154,37 @@ if __name__ == '__main__':
 
                 result_list = []
                 for flow_id, flow, label in predict_set.get_dataset():
-                    predict_result = np.argmax(trainer.model.predict(flow), axis=-1)[0]
-                    result_list.append(predict_result)
-                    logger.info("Predict flow id: %s, label: %s", flow_id[0].numpy().decode("utf-8"),
-                                predict_result)
+                    predict_result = np.argmax(trainer.model.predict(flow), axis=-1)
+                    result_list.append(np.average(predict_result))
+                    logger.debug("Predict flow id: %s, label: %s", flow_id[0].numpy().decode("utf-8"),
+                                 predict_result[0])
                     ip_addr = flow_id.numpy()[0].decode("utf-8").split("-")[0]
-                    if predict_result == 1:
-                        send_attack_ip(ip_addr)
+                    # if predict_result[0] == 1:
+                    #     send_attack_ip(ip_addr)
 
                 if result_list:
                     logger.warning("Attack: about %s%%", int(np.average(result_list) * 100))
+                    record_dict[time.time()] = int(np.average(result_list) * 100)
+
+                    # draw plot
+                    x = np.array([int(x) for x, _ in record_dict.items()])
+                    y = np.array([y for _, y in record_dict.items()])
+                    x_smooth = np.linspace(np.min(x), np.max(x), 300)
+                    try:
+                        y_smooth = make_interp_spline(x, y)(x_smooth)
+                        y_smooth = np.clip(y_smooth, 0, 100)
+                    except ValueError:
+                        continue
+                    plt.ion()
+                    fig = plt.figure("Attack", clear=True, figsize=(1.6 * 5, 0.9 * 5))
+                    plt.show()
+                    plt.ylim(0, 100)
+                    plt.ylabel("Attack Flow (%)")
+                    plt.xlabel("Time")
+                    plt.plot(x_smooth, y_smooth)
+                    plt.grid(False)
+                    plt.draw()
+                    plt.pause(0.001)
+
                 else:
                     logger.warning("No predict result! The capture file do not contain any useful data.")
