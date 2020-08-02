@@ -120,8 +120,14 @@ def parsing_label(label_dict):
 
 # test case
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     my_label_dict = load_label("dataset/CIC_DDoS_2019/CSV/03-11/UDP.csv")
-    gen = load_feature(["dataset/CIC_DDoS_2019/PCAP/3-11/SAT-03-11-2018_0117", ], 100, label_dict=my_label_dict)
+    gen = load_feature(["dataset/CIC_DDoS_2019/PCAP/3-11/SAT-03-11-2018_0117", ], 100, label_dict=my_label_dict,
+                       sample_limit_dict={"UDP": 100, "BENIGN": 100, "MSSQL": 0})
 
     for my_flow_id, my_pkt in gen:
-        print(my_flow_id, my_pkt)
+        logger.debug("Flow ID: %s, feature: %s", my_flow_id, my_pkt)
+        break
+    for my_flow_id, my_label in my_label_dict.items():
+        logger.debug("Flow ID: %s, label: %s", my_flow_id, my_label)
+        break

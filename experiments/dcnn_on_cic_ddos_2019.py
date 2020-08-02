@@ -64,7 +64,7 @@ predict_data_loader_config = GenericPcapDataLoaderConfig(preprocessor_dump_path=
                                                          return_flow_id=True)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     if IS_TRAINING:
         pcap_file_directory = "dataset/CIC_DDoS_2019/PCAP/3-11"
@@ -159,8 +159,8 @@ if __name__ == '__main__':
                     logger.debug("Predict flow id: %s, label: %s", flow_id[0].numpy().decode("utf-8"),
                                  predict_result[0])
                     ip_addr = flow_id.numpy()[0].decode("utf-8").split("-")[0]
-                    # if predict_result[0] == 1:
-                    #     send_attack_ip(ip_addr)
+                    if predict_result[0] == 1:
+                        send_attack_ip(ip_addr)
 
                 if result_list:
                     logger.warning("Attack: about %s%%", int(np.average(result_list) * 100))
