@@ -16,7 +16,7 @@ class GenericPcapDataLoader(DataLoaderTemplate):
                     self.config.FEATURE_SHAPE,
                     (2,)
                 )
-            ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=True)
+            ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=False)
         else:
             self.dataset = tf.data.Dataset.from_generator(
                 self.generator,
@@ -25,7 +25,7 @@ class GenericPcapDataLoader(DataLoaderTemplate):
                     self.config.FEATURE_SHAPE,
                     (2,)
                 )
-            ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=True)
+            ).shuffle(self.config.SHUFFLE_BUFFER).batch(self.config.BATCH_SIZE, drop_remainder=False)
 
     def generator(self):
         self.config: GenericPcapDataLoaderConfig
